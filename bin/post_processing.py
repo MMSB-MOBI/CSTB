@@ -9,11 +9,15 @@ import os
 import time
 import argparse
 import re
+import maxi_tree as MT
+import pycouch.wrapper as couchdb
+import json
 import operator
 from collections import OrderedDict
 import requests
 import wordIntegerIndexing as decoding
 import display_result as dspl
+
 
 def valid_file(parser, filename):
     """
@@ -47,6 +51,15 @@ def args_gestion():
                         required=True)
     parser.add_argument("-r", metavar="<str>",
                         help="The end point",
+                        required=True)
+    parser.add_argument("-taxon_db", metavar="<str>",
+                        help="The name of the taxon database",
+                        required=True)
+    parser.add_argument("-tree_db", metavar="<str>",
+                        help="The name of the taxon database",
+                        required=True)
+    parser.add_argument("-end_point", metavar="<str>",
+                        help="The end point of the taxon and tree database",
                         required=True)
     parser.add_argument("-c", metavar="<int>",
                         help="The length of the slice for the request",
@@ -90,11 +103,11 @@ def couchdb_search(sgrna_list, end_point, len_slice, no_poxy_bool):
                 results["request"].update(req_func.post(end_point + "/bulk_request",
                                                         json=request_sliced).json()["request"])
         except Exception as e:
-            dspl.eprint("Something wrong append, retrying time", str(joker))
+            dspl.eprint("Something wrong append '{}', retrying time {}".format(end_point, joker))
             dspl.eprint("Error LOG is ", str(e))
             joker += 1
-            if joker > 50:
-                print("Program terminated&after 50 tries to access to the database")
+            if joker > 3:
+                print("Progam terminated&after 50 tries to access to the database")
                 sys.exit(1)
             time.sleep(5)
             continue
@@ -235,7 +248,7 @@ def parse_setcompare_out(output_c, nb_top):
 
 def create_dic_hits(param, genomes_in):
     """
-    Definition
+    Treat the search into database and return a dictionary of hits
     """
     dic_index, nb_hits = parse_setcompare_out(param.f, int(param.nb_top)) if int(param.sl) == 20 else parse_setcompare_other(param.f, int(param.nb_top))
     dspl.eprint("NB_HITS  ==>  {}     Length DIC_INDEX  ==>  {}".format(nb_hits, len(dic_index)))
@@ -261,6 +274,45 @@ def create_dic_hits(param, genomes_in):
     return dic_hits
 
 
+def get_size(end_point, tree_db_name, taxon_db, genomes_in):
+    tree = MT.MaxiTree.from_database(end_point, tree_db_name)
+    json_tree = tree.get_json(True)
+    taxon_orgname = {}
+
+    req_func = requests.Session()
+    req_func.trust_env = False
+    try:
+        res = req_func.get(end_point + "handshake").json()
+        dspl.eprint("HANDSHAKE PACKET (taxon_db) : {}".format(res))
+    except Exception as e:
+        dspl.eprint("Could not perform handshake, exiting")
+        print("Program terminated&No handshake with taxon database")
+        sys.exit(1)
+
+    try:
+        for org in genomes_in:
+            taxon_orgname[re.search(org.replace("(", "\(").replace(")", "\)") + " : ([^']*)", json_tree).group(1)] = org
+
+        size_dic = {}
+        joker = 0
+        while joker < 3 :
+            try:
+                res = req_func.post(end_point + taxon_db ,json={"keys" : list(taxon_orgname.keys())}).json()["request"]
+                for taxon in res :
+                    size_dic[taxon_orgname[taxon]] = res[taxon]["size"]
+                break
+            except:
+                dspl.eprint("something wrong append '{}', {} times".format(list(taxon_orgname.keys()), joker))
+                joker += 1
+
+    except:
+        # print("Program terminated&Error with genomes size")
+        json.dump("", open("size_org.json", "w"))
+        # sys.exit()
+
+    json.dump(size_dic, open("size_org.json", "w"))
+
+
 if __name__ == '__main__':
     PARAM = args_gestion()
     GENOMES_IN = PARAM.gi.split("&")
@@ -271,6 +323,8 @@ if __name__ == '__main__':
     dspl.display_hits(DIC_HITS, GENOMES_IN, GENOMES_NOTIN,
                       PARAM.pam, int(PARAM.sl), ".", int(PARAM.nb_top),
                       True, list(DIC_HITS.keys()))
+
+    get_size(PARAM.end_point, PARAM.tree_db, PARAM.taxon_db, GENOMES_IN)
 
     print(','.join(GENOMES_NOTIN))
     print("TASK_KEY")

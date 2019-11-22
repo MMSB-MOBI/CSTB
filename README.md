@@ -1,19 +1,38 @@
-# CRISPR : search common sgrna sequences excluding genomes
+# CRISPR : search common sgrna sequences to target bacterial strains
 This script is a part of a pipeline which allows to find common sgrna from a set of genomes of bacteria which cannot match with a set of other genomes.
 
 With this, it is possible to select an heterogeneous population of bacteria and to kill a second population.
+![Schema CRISPR service](https://github.com/sophielem/crispr/blob/dev_add_genome/doc/schema_crispr_service.png)
 
-## Implemented functions
-This python script decode the plain text given in argument with the alphabet ["A", "T", "C", "G"].<br>
-Then, it does a research in the crispr database with the decoded sequences and retrieves all organism containing the sequence for each sequence with their coordinates in each organism. Only genomes selected by user are conserved and results are displayed by a *json* file containing the first 100 hits and a *text* file containing the first 10,000 hits.
+## Dependencies
+To execute this script, you need few dependencies :
+* docopt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;== 0.6.2
+* ete3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;== 3.1.1
+* biopython == 1.66
 
-##### Format of the *json* file :
+You also need blastn.
+
+## Results files
+Only genomes selected by user are conserved and results are displayed by two *json* file containing the first 100 hits organized by sgRNA or by organism and a *text* file containing the first 1,000 hits.
+Another *json* file contains results sorted by organism name and not by sgRNAs.
+##### Format of *json* files :
+Organized by sequences
 ```json
 {'sequence' : word, 'occurences' :
                                     {'org' : genome, 'all_ref' :
                                                                 {'ref' : ref, 'coords' : [coordinates]
                                                                }
                                     }
+}
+```
+
+Organized by organisms
+```json
+{org : {
+          ref : {
+                  sgRNA : [coordinates]
+                }
+        }
 }
 ```
 
@@ -29,106 +48,42 @@ word    ref : coordinates   ref : coordinates   ref : coordinates...
 .
 ```
 
+## Databases
+[ReadMe to launch server](https://github.com/sophielem/crispr/blob/dev_add_genome/doc/README.md)
 
-## Dependencies
-To execute this script, you need few dependencies :
-* docopt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;== 0.6.2
-* ete3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;== 3.1.1
-* biopython == 1.66
+### Plain text
+In a folder *crispr_clean*, index files are saved in *genome_index* folder on arwen-dev cluster and fasta files are saved in *genome_fasta* folder. Pickle files are saved in *genome_pickle* in the folder *crispr_clean* on arwen. These files are not needed for scripts, they are just a backup of the CRISPR database.
+The database for BLAST is in *crispr_clean* on arwen-dev.
+*genome_index* : name + space + GCF + .index
+*genome_pickle* : name + space + GCF + .p
+*genome_fasta* : GCF + undescrore + ASM + tar.gz
 
-You also need blastn.
+### CRISPR database
+This database contains several volumes, 64. Each volume can be accessed from a regex, which is the length prefix 3 of the sgRNA. The entry is the sgRNA sequence and it contains a dictionary of organism and coordinates under the key **data**.
 
-## Usage
-### Normal mode
+This database is full with pickle file and the *couchBuild.py* script.
 
+#### Create Metafile (*pickle* and *index*)
 ```sh
-usage: post_processing.py [-h] [-sl <int>] -pam <str> -gi <str> -gni <str> -r
-                          <str> -c <int> -f <str> [--no-proxy] [-nb_top <int>]
+usage: create_metafile.py [-h] -file <str> [-out <str>] [-taxid <str>]
+                          [-gcf <str>] [-rfg [<str>]] [-plasmid]
 
-Post-processing results
-
-optional arguments:
-  -h, --help     show this help message and exit
-  -sl <int>      The length of the sgrna, excluding pam
-  -pam <str>     The pam motif
-  -gi <str>      The organisms to search inclusion in.
-  -gni <str>     The organisms to search exclusion from
-  -r <str>       The end point
-  -c <int>       The length of the slice for the request
-  -f <str>       The file index
-  --no-proxy
-  -nb_top <int>  The top hits to download
-```
-
-```sh
-python bin/post_processing.py -sl 20 -pam "NGG"\
--gi "genome1&genome2&genome3" -gni "genome4&genome5"\
--r "http://localhost:1234" -c 1000 -f "data/example_outputC.txt"
-```
-
-### Specific gene
-Retrieve sgRNA on a specific gene given by user. Retrieve result from SetCompare script and
-create files for displaying on webservice.
-
-```sh
-usage: bin/specific_gene.py [-h] -gi <str> -gni <str> [-sl [<int>]]
-                            [-pam [<str>]] -f <str> -blast <str>
-                            [-nb_top <int>] [--no-proxy] -r <str> -c <int>
-
-Specific gene program.
-
-optional arguments:
-  -h, --help     show this help message and exit
-  -gi <str>      The organisms to search inclusion in.
-  -gni <str>     The organisms to search exclusion from
-  -sl [<int>]    The length of the sgrna, excluding pam
-  -pam [<str>]   The pam motif
-  -f <str>       The file index
-  -blast <str>   The blast output file
-  -nb_top <int>  The top hits to download
-  --no-proxy
-  -r <str>       The end point
-  -c <int>       The length of the slice for the request
-  ```
-
-### Create Metafile (*pickle* and *index*)
-
-```sh
-usage: create_metafile.py [-h] -file <str> -out <str>
-
-Create pickleand index metafile
-
-optional arguments:
-  -h, --help   show this help message and exit
-  -file <str>  The fasta file to parse
-  -out <str>   The output path without the extension
- ```
-
-
-### Parse blastn output
-If no database for blast software, use this command to create it:
-```sh
-makeblastdb -in file.fasta -title "Database with all genomes" -dbtype nucl
-```
-
-```sh
-usage: parse_blast.py [-h] -blast <str> [-ip [IP]] -gi <str>
-
-Parse the output of blastn
+Create pickle and index metafile
 
 optional arguments:
   -h, --help    show this help message and exit
-  -blast <str>  The path to the blastn output file
-  -ip [IP]      identity percentage min for the research of homologous genes
-                using blastn (default:70)
-  -gi <str>     The organisms to search inclusion in
- ```
+  -file <str>   The fasta file to parse
+  -out <str>    Path for the output file without extension
+  -taxid <str>  Taxonomy ID
+  -gcf <str>    GCF ID
+  -rfg [<str>]  The path to the database for index and pickle file
+  -plasmid      If present, indicates the genome is a plasmid
+```
 
-# Indexing ATCG words
+##### Word detection
+Detect sgRNAs by regex and dump results in a pickle file.
 
-### Usage
-
-###### Specifying any output
+##### Indexing ATCG words
 
 ```sh
 python wordIntegerIndexing.py data/example.pickle --out /any/folder/toto.index
@@ -136,7 +91,7 @@ python wordIntegerIndexing.py data/example.pickle --out /any/folder/toto.index
 
 will produce `/any/folder/toto.index`
 
-###### Otherwise output file name is guessed from input and wrote locally
+!!! **Otherwise output file name is guessed from input and wrote locally**
 
 ```sh
 python wordIntegerIndexing.py data/example.pickle
@@ -144,11 +99,115 @@ python wordIntegerIndexing.py data/example.pickle
 
 will produce `./example.index`
 
+### Taxon database
+It contains entries with taxonomy ID for name. This document contains the list of GCF under the key **GCF** and the current GCF under key **current**. The keys **date** and **user** give the date and the user who did the last update.
 
-# Tests
+```JSON
+{
+  "_id": "100226",
+  "_rev": "7-c85bed6b4690fa9f8c456490df9d3895",
+  "GCF": [
+    "GCF_000203835.1"
+  ],
+  "date": "2019-07-17 15:35",
+  "user": "MMSB",
+  "current": "GCF_000203835.1",
+  "size": {
+    "NC_003888.3": 8667507
+  }
+}
+```
 
-To launch test, just execute python test/ *{sg | ag_simple | ag_len_16 | ag_exclude} _test.py* end_point_for_motif-broker. If a message is displaying, then there is a problem with the code because
-it cannot find correct results.
+#### Create taxon file
+```sh
+usage: create_file_taxondb.py [-h] {scratch,single} ...
+
+Convert the genomre_ref_taxid.json to a pickle file ready to be insert into
+database
+
+positional arguments:
+  {scratch,single}  commands
+    scratch         Create files to insert from the genomre_ref_taxid.json
+                    file
+    single          Create file to insert
+
+optional arguments:
+  -h, --help        show this help message and exit
+```
+
+Create a taxon file for a single genome. The url is needed to check if an entry exists for this taxon ID. If so, it takes the list of GCF, add the new GCF and make it the current one.
+```sh
+usage: create_file_taxondb.py single [-h] [-user [<str>]] -gcf <str> -taxid
+                                     <str> -r <str> -dbName <str>
+                                     [-out [<str>]] -rfg <str>
+
+optional arguments:
+  -h, --help     show this help message and exit
+  -user [<str>]  The user
+  -gcf <str>     GCF id
+  -taxid <str>   Taxonomy id
+  -r <str>       End point for taxon Database
+  -dbName <str>  Name of the taxon Database
+  -out [<str>]   The name of the outputfile
+  -rfg <str>     Path of the fasta file
+```
+
+Convert the genome_ref_taxid.json to a pickle file ready to be insert into
+database or list file with the format : taxonId \t GCF_id
+```sh
+usage: create_file_taxondb.py scratch [-h] -file <str> [-user [<str>]]
+                                      [-out [<str>]] -rfg <str> [--no-proxy]
+                                      [--json]
+
+optional arguments:
+  -h, --help     show this help message and exit
+  -file <str>    The json file to convert or the list file in csv
+  -user [<str>]  The user
+  -out [<str>]   The name of the outputfile
+  -rfg <str>     Path of the fasta file
+  --no-proxy
+  --json
+```
+
+The output will be :</br>
+taxon_dt={"1234": {"GCF": ["GCF_111", "GCF_112", "GCF_113"], "date": "19-04-2019", "User": "Queen", "current": "GCF_111", "size":{"NC_123": 20003}},</br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"2345": {"GCF": ["GCF_211", "GCF_212", "GCF_213"], "date": "19-04-2019", "User": "Queen", "current": "GCF_211", "size":{"NC_132": 74563}}}
+
+### Tree database
+It contains only one entry, **maxi_tree**. This document contains a key **tree** with the tree in JSON format ({'text' : blabla, 'children': ['text': blabla....]}) and the date of the update under key **date**.  
+
+```JSON
+{
+  "_id": "maxi_tree",
+  "_rev": "22-8f8a7e827a00ea6605ce2c7b8a8d8aed",
+  "tree": "{'text': 'root', 'children': [{'text': 'Gammaproteobacteria', 'children': [{'text': 'Enterobacterales',...",
+  "date": "2019-05-09 12:44"
+}
+```
+
+#### Maxi Tree object
+Class MaxiTree object. This tree contains: a tree object from the package ete3 with the name
+of the organism, the current GCF and its taxonomy Id if it's present into the CRISPR database. This taxon ID is
+referenced in the name separate by a ':' and in a node's feature 'taxon'.
+The name of a node is composed like this:
+    name (without ' and /) GCF_ID : taxon_ID
+
+Several constructor:
+* from the database
+* from the genome_ref_taxid.json file
+* from a MaxiTree pickle file
+* from the taxon database
+
+Several methods are implemented to insert a new node, to write a json file of the tree
+full (with taxonID) or not, to get the json string full or not...
+
+The main function allows to create this Tree from the genome_ref_taxid.json file and to create a pickle MaxiTree file to insert into the taxon_tree_db.
+
+
+
+## Workflows
+
+[ReadMe for workflows](https://github.com/sophielem/crispr/blob/dev_add_genome/scripts/workflows.md)
 
 ## Date
-April 18 2019
+June 24 2019

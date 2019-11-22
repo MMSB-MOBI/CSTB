@@ -1,6 +1,29 @@
 #!/usr/bin/env python3
 """
-Display results
+Display results:
+Contain object Hit, which contains the sgRNA, its score and the dictionary containing
+genomes and references where it is present and its coordinates
+
+Write json and text files with results from the intersection of genomes
+
+****** Format of the json file ******
+{'sequence' : word, 'occurences' :
+                                    {'org' : genome, 'all_ref' :
+                                                                {'ref' : ref, 'coords' : [coordinates]
+                                                               }
+                                    }
+}
+
+****** Format of the text file ******
+#ALL GENOMES
+#Genomes included : *list of genomes*  ; Genomes excluded : *list of genomes*
+#Parameters: pam: *PAM* ; sgrna size: *size*
+        genome_in_1     genome_in_2     genomes_in_3...
+word    ref : coordinates   ref : coordinates   ref : coordinates...
+.
+.
+.
+
 """
 
 import sys
@@ -19,9 +42,6 @@ class Hit():
         self.score = score
 
     def set_genomes_dict(self, dic_seq):
-        """
-        Set the dictionary containing coordinates
-        """
         self.genomes_dict = dic_seq
 
     def write(self, genomes_in):
@@ -79,6 +99,28 @@ def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_lengt
     output.close()
 
 
+def create_list_ref(dic_ref):
+    """
+    Create a list of references
+    """
+    list_ref = []
+    for ref in dic_ref:
+        dic = {"ref": ref, "coords": dic_ref[ref]}
+        list_ref.append(dic)
+    return list_ref
+
+
+def create_list_occurences(dic_occurences):
+    """
+    Create a list of occurences
+    """
+    list_occurences = []
+    for genome in dic_occurences:
+        dic_genome = {'org': genome, 'all_ref': create_list_ref(dic_occurences[genome])}
+        list_occurences.append(dic_genome)
+    return list_occurences
+
+
 def output_interface(dic_hits, workdir, nb_top):
     """
     Reformat the results to create a json file.
@@ -102,6 +144,7 @@ def display_hits(dic_hits, genomes_in, genomes_not_in, pam, non_pam_motif_length
 
     # Output formatting for printing to interface
     output_interface(dic_hits, workdir, 100)
+
     dic_sorted_by_org = {genome : {} for genome in genomes_in}
     if hit_obj:
         for seq in dic_hits:
