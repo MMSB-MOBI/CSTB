@@ -31,6 +31,8 @@ import pycouch.wrapper as couchdb
 import display_result as dspl
 from ete3 import Tree,NCBITaxa
 
+SESSION = requests.session()
+SESSION.trust_env = False
 
 class MaxiTree(object):
     """docstring for MaxiTree."""
@@ -39,6 +41,7 @@ class MaxiTree(object):
         self.all_spc = all_spc
 
     @classmethod
+    # NO VERIFICATION : PROBABLY OBSOLETE
     def from_database(cls, end_point, db_name):
         req_func = check_connexion(end_point)
         try:
@@ -56,6 +59,7 @@ class MaxiTree(object):
         return cls(tree_topo, list_taxid)
 
     @staticmethod
+    # NO VERIFICATION : PROBABLY OBSOLETE
     def convert_json_to_tree(cls, node, dic):
         # Give the name to the root
         if node.is_root() and node.name == '':
@@ -77,6 +81,7 @@ class MaxiTree(object):
             cls.convert_json_to_tree(cls, new_node, i)
 
     @classmethod
+    # NO VERIFICATION : PROBABLY OBSOLETE
     def from_maxitree(cls, maxitree_file):
         # Check if the pickle file exists
         if not os.path.isfile(maxitree_file): sys.exit("*** File does not exist ***")
@@ -89,6 +94,7 @@ class MaxiTree(object):
         return cls(tree_topo, list_taxid)
 
     @classmethod
+    # NO VERIFICATION : PROBABLY OBSOLETE
     def from_gen_ref(cls, gen_ref_file, end_point, db_name):
         # Check if the genome_ref_taxid.json file exists
         if not os.path.isfile(gen_ref_file): sys.exit("*** File does not exist ***")
@@ -105,10 +111,9 @@ class MaxiTree(object):
         return cls(tree_topo, list_taxid)
 
     @staticmethod
+    # VERIFICATED : OK
     def construct_tree(cls, list_taxid, end_point, db_name):
         # Check if it can connect to the database
-        req_func = check_connexion(end_point)
-
         ncbi = NCBITaxa()
         # Create the topology Tree with taxon ID
         tree_topo = ncbi.get_topology(list_taxid)
@@ -123,13 +128,17 @@ class MaxiTree(object):
             node.name = rename_node(node.name, ncbi)
             if hasattr(node, "taxon"):
                 # Add the GCF and taxon ID to the name
-                gcf = req_func.post(end_point + db_name, json={"keys": [node.taxon]}).json()["request"][node.taxon]["current"]
-                node.name = "{} {} : {}".format(node.name, gcf, node.taxon)
+                taxon_doc = json.loads(SESSION.get(end_point + db_name + "/" + node.taxon).text)
+                gcf = taxon_doc["current"]
+                taxondb_name = taxon_doc["current_name"]
+                node.name = "{} {} : {}".format(taxondb_name, gcf, node.taxon)
         # Name for the root
         tree_topo.name = ncbi.get_taxid_translator([int(tree_topo.name)])[int(tree_topo.name)]
+
         return tree_topo
 
     @classmethod
+    # VERIFICATED : OK
     def from_taxon_database(cls, end_point, db_name):
         couchdb.setServerUrl(end_point + db_name)
         if not couchdb.couchPing():
@@ -140,13 +149,14 @@ class MaxiTree(object):
         list_taxon = [row['key'] for row in all_entries['rows']]
         # Only keep taxon id and cast into int
         list_taxond_id = [int(i)  for i in list_taxon if re.match("^[0-9]*$", i)]
+        
         # Only keep plasmid name
         list_plasmids = [i  for i in list_taxon if not re.match("^[0-9]*$", i)]
         # Construct the Tree object and Add the taxonID of plasmid
-        tree_topo = cls.construct_tree(cls, list_taxond_id + [36549], end_point, db_name)
+        tree_topo = cls.construct_tree(cls, list_taxond_id + ["36549"], end_point, db_name)
         # Insert plasmid under node plasmid
         for plasmid in list_plasmids:
-            cls.insert_plasmid(cls, plasmid, end_point, tree_topo)
+            tree_topo = cls.insert_plasmid(cls, plasmid, end_point, db_name, tree_topo)
         # Generate the list of TaxonID from leaves
         list_taxid = [int(node.taxon) for node in tree_topo.iter_descendants() if hasattr(node, "taxon")]
         return cls(tree_topo, list_taxid)
@@ -261,17 +271,18 @@ class MaxiTree(object):
         self.all_spc = [int(node.taxon) for node in tree_topo.iter_descendants() if hasattr(node, "taxon")]
         return True
 
-    def insert_plasmid(self, name, end_point, db_name, tree=None):
+    def insert_plasmid(self, name, end_point, db_name, tree):
         # Check if can connect to the database
-        req_func = check_connexion(end_point)
-
-        gcf = req_func.post(end_point + db_name, json={"keys": [name]}).json()["request"][name]["current"]
+        #req_func = check_connexion(end_point)
+        #gcf = req_func.post(end_point + db_name, json={"keys": [name]}).json()["request"][name]["current"]
+        taxon_doc = json.loads(SESSION.get(end_point + db_name + "/" + name).text)
+        gcf = taxon_doc["current"]
         name = "{} {}".format(name, gcf)
-        plasmid_node = tree.search_nodes(taxon="36549")[0] if tree else self.tree.search_nodes(taxon="36549")[0]
+        plasmid_node = tree.search_nodes(name="plasmids")[0]
         plasmid_node.add_child(name=name)
         new_plasmid = plasmid_node.search_nodes(name=name)[0]
         new_plasmid.add_feature("plasmid", name)
-        return True
+        return tree
 
 
 def rename_node(taxid, ncbi):
