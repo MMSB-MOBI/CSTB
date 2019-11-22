@@ -130,7 +130,8 @@ class MaxiTree(object):
                 # Add the GCF and taxon ID to the name
                 taxon_doc = json.loads(SESSION.get(end_point + db_name + "/" + node.taxon).text)
                 gcf = taxon_doc["current"]
-                node.name = "{} {} : {}".format(node.name, gcf, node.taxon)
+                taxondb_name = taxon_doc["current_name"]
+                node.name = "{} {} : {}".format(taxondb_name, gcf, node.taxon)
         # Name for the root
         tree_topo.name = ncbi.get_taxid_translator([int(tree_topo.name)])[int(tree_topo.name)]
 
@@ -148,6 +149,7 @@ class MaxiTree(object):
         list_taxon = [row['key'] for row in all_entries['rows']]
         # Only keep taxon id and cast into int
         list_taxond_id = [int(i)  for i in list_taxon if re.match("^[0-9]*$", i)]
+        
         # Only keep plasmid name
         list_plasmids = [i  for i in list_taxon if not re.match("^[0-9]*$", i)]
         # Construct the Tree object and Add the taxonID of plasmid
