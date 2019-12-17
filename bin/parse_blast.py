@@ -11,7 +11,9 @@ import argparse
 import pickle
 import re
 import xml.etree.ElementTree as ET
+import re
 
+REGEX_ID = [re.compile("^GCF_[0-9]{9}.[0-9]{1}$"), re.compile("CP[0-9]{6}.[0-9]{1}")]
 
 class BlastHit(object):
     """docstring for BlastHit."""
@@ -115,7 +117,8 @@ def check_in_gi(gi_name, blast_name):
     """
     # Remove the GCF code of the end if exists
     putative_gcf = gi_name.split(" ")[-1]
-    if putative_gcf.startswith("GCF_"):
+    check_id = [regex.match(putative_gcf) for regex in REGEX_ID if regex.match(putative_gcf)]
+    if check_id:
         gi_name = " ".join(gi_name.split(" ")[:-1]).strip()
     return re.search(gi_name + "[ ,$]", blast_name)
 
