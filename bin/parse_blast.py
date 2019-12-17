@@ -113,8 +113,10 @@ def check_in_gi(gi_name, blast_name):
     Return a match or none if the name of the blast hit is in the list
     of included genomes
     """
-    # Remove the GCF code of the end
-    gi_name = " ".join(gi_name.split(" ")[:-1]).strip()
+    # Remove the GCF code of the end if exists
+    putative_gcf = gi_name.split(" ")[-1]
+    if putative_gcf.startswith("GCF_"):
+        gi_name = " ".join(gi_name.split(" ")[:-1]).strip()
     return re.search(gi_name + "[ ,$]", blast_name)
 
 
