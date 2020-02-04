@@ -29,6 +29,11 @@ word    ref : coordinates   ref : coordinates   ref : coordinates...
 import sys
 import json
 import itertools
+import CSTB.wordIntegerIndexing as decoding
+import logging
+import CSTB.error as error
+
+
 
 
 class Hit():
@@ -36,10 +41,11 @@ class Hit():
     Object Hit containing the CRISPR sequence, indexes where it is found
     and its associated score
     """
-    def __init__(self, sequence, score):
-        self.sequence = sequence
-        self.genomes_dict = {}
-        self.score = score
+    def __init__(self, index, weight):
+        self.index = int(index)
+        self.weight = weight
+        self.sequence = self.decode()
+        self.occurences = {}
 
     def set_genomes_dict(self, dic_seq):
         self.genomes_dict = dic_seq
@@ -52,13 +58,28 @@ class Hit():
         return to_write.strip(';')
 
     def list_ref(self, org_name):
-        list_ref = [{"ref": ref, "coords": self.genomes_dict[org_name][ref]} for ref in self.genomes_dict[org_name]]
+        list_ref = [{"ref": ref, "coords": self.occurences[org_name][ref]} for ref in self.occurences[org_name]]
         return list_ref
 
-    def list_occ(self):
-        list_occurences = [{'org': genome, 'all_ref': self.list_ref(genome)} for genome in self.genomes_dict]
+    def list_occ(self, taxon_name):
+        list_occurences = [{'org': taxon_name[genome], 'all_ref': self.list_ref(genome)} for genome in self.occurences]
         return list_occurences
 
+    def __str__(self):
+        return f"index:{self.index}\nweight:{self.weight}\nsequence:{self.sequence}\noccurences:{self.occurences}"
+
+    def store_occurences(self, couch_doc, genomes_in):
+        db_genomes = set(couch_doc.keys())
+        if not set(genomes_in).issubset(db_genomes):
+            error.error_exit(f"Consistency error. Genomes included are not in couch database for {self.sequence}")
+        
+        self.occurences = {genome:couch_doc[genome] for genome in genomes_in}
+
+    def decode(self):
+        try:
+            return decoding.decode(self.index, ["A", "T", "C", "G"], 23)
+        except:
+            error.error_exit("Error while decoding index")
 
 def eprint(*args, **kwargs):
     """
