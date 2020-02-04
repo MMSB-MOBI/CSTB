@@ -1,0 +1,2 @@
+class CouchNotFound(Exception):
+    pass
