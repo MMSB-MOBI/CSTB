@@ -6,6 +6,11 @@ import pycouch.wrapper as couch_wrapper
 import json
 import traceback
 
+'''TO DO
+- Add verbosity parameter
+- Change error document and dump a json
+'''
+
 def args_gestion():
     """
     Take and treat arguments that user gives in command line
@@ -33,7 +38,7 @@ def args_gestion():
     parser.add_argument("--tag", metavar = "<str>", help = "tag for outputs", required = True)
     return parser.parse_args()
 
-def error_exit(message): #WHERE TO PUT THIS ?
+def error_exit(message): 
     print({"emptySearch" : message})
     traceback.print_exc()
     exit()
@@ -45,13 +50,18 @@ if __name__ == '__main__':
 
     #Get genomes uuid from args
     include = PARAM.include.split("&")
-    exclude = PARAM.exclude.split("&")
+    exclude = PARAM.exclude.split("&") if PARAM.exclude else []
+
+    logging.debug(PARAM.include)
+    logging.debug(PARAM.exclude)
+
+    logging.info(f"Include genomes : {include} ({len(include)})\nExclude genomes : {exclude} ({len(exclude)})\n")
 
     #Initialize pycouch wrapper
     logging.info("= Initialize pycouch wrapper")
     wrapper = couch_wrapper.Wrapper(PARAM.couch_endpoint)
     if not wrapper.couchPing():
-        print({"emptySearch": "Can't ping couch database"})
+        error_exit("Can't ping couch database")
 
     results = CrisprResultManagerOld(wrapper, PARAM.taxon_db, PARAM.genome_db, PARAM.motif_broker_endpoint, PARAM.tag)
 
@@ -63,15 +73,18 @@ if __name__ == '__main__':
 
     logging.info("= Parse setCompare")
     try:
-        results.parse_set_compare(PARAM.set_compare, PARAM.length, 5000)
+        results.parse_set_compare(PARAM.set_compare, PARAM.length, 1000)
     except:
         error_exit("Error while parse setCompare")
+
+    if not results.hits_collection:
+        error_exit("No hits")
     
     logging.info("= Search sgrna occurences in couchDB")
     try:
         results.search_occurences(include)
     except:
-        error_exit("Error while search occurences in couchDB")
+        error_exit("Error while search sgRNA occurences in couchDB")
 
     logging.info("= Format results")
     try:
