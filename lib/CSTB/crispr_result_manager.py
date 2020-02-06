@@ -2,11 +2,11 @@ import logging
 import pycouch.error
 import re
 from collections import OrderedDict
-import CSTB.crispr_hit.Hit as Hit
-import CSTB.error as error
+from CSTB.engine.crispr_hit import Hit
+import CSTB.utils.error as error
 import requests
 import time
-from typing import List
+from typing import List, Dict, TypedDict
 
 
 SESSION = requests.Session()
@@ -17,16 +17,23 @@ SESSION.trust_env = False
 - make module with wordIntegerIndexing, also use in crispr-manager
 '''
 
-class CrisprResult:
-    def __init__(self, include, exclude):
-        self.genomes_include = include
-        self.genomes_exclude = exclude
+class CrisprResultManager():
+    """Manager for crispr results
+    
+    Attributes:
+        wrapper (pycouch.wrapper.Wrapper): pycouch wrapper to interrogate couchDB
+        motif_broker_endpoint (str): motif-broker endpoint to get sgRNA occurences from couchDB with mapping
+        taxondb (str): taxon database name
+        genomedb (str): genome database name
+        tag (str): tag for result storage
+        nb_total_hits (int): Number of hits found by setCompare. Set with parse_set_compare() call.
+        nb_treated_hits (int): Number of setCompare hits treated by this manager. Set with parse_set_compare() call.
+        hits_collection (List[Hit]) : List of Hit objects
+        include_taxon (Dict) : Dict with included genomes uuid as keys and corresponding taxon name as value
+        exclude_taxon (Dict) : Dict with included genomes uuid as keys and corresponding taxon name as value
 
-    def serialize_genomes_info(self):
-        pass
+    """
 
-
-class CrisprResultManager:
     def __init__(self, pycouch_wrapper, taxondb, genomedb, motif_broker_endpoint, tag):
         self.wrapper = pycouch_wrapper
         self.motif_broker_endpoint = motif_broker_endpoint
@@ -41,9 +48,14 @@ class CrisprResultManager:
 
     #Move this in some consumer
     def get_taxon_name(self, list_uuid):
-        '''
-        Get taxon names from a list of genome uuid. Will interrogate couchDB genome db and taxon db. 
-        '''
+        """Get taxon names for a list of genome uuid. Will interrogate couchDB genome db and taxon db.
+        
+        Args:
+            list_uuid (List[str]): list of genomes uuid
+        
+        Raises:
+            error.CouchNotFound: Raise when couch document is not found
+        """
         correspondance_genome_taxon = {}
         logging.debug(f"Try to get taxon name for {list_uuid}")
         for g_uuid in list_uuid:
@@ -62,6 +74,17 @@ class CrisprResultManager:
 
     #Move this in some consumer
     def get_genomes_size(self, list_uuid):
+        """ Get genome size for a list of genomes uuid. Interrogate couchDB genome database.
+        
+        Args:
+            list_uuid (List[str]): list of genomes uuid
+        
+        Raises:
+            error.CouchNotFound: [description]
+        
+        Returns:
+            Dict: Dict with genome_uuid as key and size dict as value. Size dict contains subsequence name as key and list of coordinates as value. 
+        """
         sizes = {}
         for g_uuid in list_uuid:
             resp = self.wrapper.couchGetDoc(self.genomedb, g_uuid)
@@ -72,12 +95,27 @@ class CrisprResultManager:
         return sizes
             
     def set_taxon_names(self, include, exclude):
+        #type: (List[str], List[str]) -> None
+        """
+        Get taxon names for include and exclude genomes uuid. Call get_taxon_name() and set include_taxon and exclude_taxon attributes. 
+
+        :param include: List of include genome uuid
+        :param exclude: List of exclude genome uuid
+        """
+
         if include:
             self.include_taxon = self.get_taxon_name(include)
         if exclude:
             self.exclude_taxon = self.get_taxon_name(exclude)
 
     def search_occurences(self, genomes_include, len_slice = 2000):
+        #type: (List[str], int) -> None
+        """Search sgRNA occurences in couchDB with motif broker and complete Hit objects.
+        
+        :param genomes_include: list of genome uuid
+        :param len_slice: Length of packet to interrogate couchDB, defaults to 2000
+        :raises error.PingError: Raise when motif-broker can't be reach
+        """
         try:
             SESSION.get(self.motif_broker_endpoint + "/handshake")
         except:
@@ -103,6 +141,16 @@ class CrisprResultManager:
            
 
     def parse_set_compare(self, setCompare_file, word_length, to_keep):
+        """ Parse results from setCompare. Will call a different parsing function for word with size 20 and for shorter words. Separate functions are required because setCompare results format is not the same with with 20-length words and shorter words. Initialize hits_collection and nb_treated_hits
+        
+        :param setCompare_file: path to setCompare result file 
+        :type setCompare_file: str
+        :param word_length: Word length
+        :type word_length: int
+        :param to_keep: Number of hits to keep
+        :type to_keep: int
+        """
+        
         self.nb_treated_hits = to_keep
         self.hits_collection=[]
         logging.info(f"Parse set compare for word length {word_length}")
@@ -112,6 +160,14 @@ class CrisprResultManager:
             logging.debug("Handle this")
             
     def _parse_set_compare_20(self, setCompare_file, to_keep):
+        """Parse setCompare for word of size 20. 
+        
+        :param setCompare_file: path to setCompare result file 
+        :type setCompare_file: str
+        :param to_keep: Number of hits to keep
+        :type to_keep: int
+        """
+
         with open(setCompare_file, "r") as filin:
             text = filin.readlines()
 
@@ -148,6 +204,12 @@ class CrisprResultManager:
         return index_dic, nb_hits
 
     def generate_json_data(self):
+        """Generate json data for client (to display into table) from Hit collection. 
+        
+        :return: json data, 
+        :rtype: List[Dict]
+        """
+
         results = []
         sorted_hits = sorted(self.hits_collection, key=lambda hit: hit.number_occurences)
         #logging.debug([hit.number_occurences for hit in self.hits_collection])
@@ -158,6 +220,11 @@ class CrisprResultManager:
         return results
 
     def generate_json_data_card(self):
+        """Generate json data for client to display genomic card from Hit collection. 
+        
+        :return: json data
+        :rtype: Dict { organism : { fasta_header : { sgRNA_sequence : List[str] } } }
+        """
 
         def insert_in_data_card(genome_uuid, subseq, sequence, coords):
             genome_name = self.include_taxon[genome_uuid]
@@ -178,6 +245,11 @@ class CrisprResultManager:
         return data_card
 
     def generate_json_size(self):
+        """[summary]
+        
+        :return: json data
+        :rtype: Dict { organism : { fasta_header : length } }
+        """
         json_size = {}
         sizes = self.get_genomes_size(list(self.include_taxon.keys()))
         for g_uuid in sizes:
@@ -186,6 +258,11 @@ class CrisprResultManager:
         return json_size
         
     def format_results(self):
+        """Create the final json for client
+        
+        :return: final json
+        :rtype: Dict
+        """
         final_json = {}
         final_json["gi"] = "&".join(list(self.include_taxon.values()))
         final_json["not_in"] = ",".join(list(self.exclude_taxon.values()))

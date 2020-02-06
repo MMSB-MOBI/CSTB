@@ -29,43 +29,57 @@ word    ref : coordinates   ref : coordinates   ref : coordinates...
 import sys
 import json
 import itertools
-import CSTB.wordIntegerIndexing as decoding
+import CSTB.engine.wordIntegerIndexing as decoding
 import logging
-import CSTB.error as error
+import CSTB.utils.error as error
 
 
 
 class Hit():
-    """
-    Object Hit containing the CRISPR sequence, indexes where it is found
-    and its associated score
+    """Hit object
+    
+    :ivar index: setCompare index
+    :vartype index: int
+    :ivar weight: setCompare weigth, correspond to number of sgRNA occurences in all genomes
+    :vartype weight: int
+    :ivar sequence: sgRNA sequence in nucleotides
+    :vartype sequence: str
+    :ivar occurences: Occurences of sgRNA in genomes
+    :vartype occurences: Dict { genome : { fasta_header : List[str] } }
+   
     """
     def __init__(self, index, weight):
+        """ Initialize an Hit object
+        
+        :param index: setCompare index
+        :type index: int
+        :param weight: setCompare weight, correspond to number of sgRNA occurences in all genomes
+        :type weight: int
+        """
         self.index = int(index)
         self.weight = weight
         self.sequence = self.decode()
         self.occurences = {} #This dictionnary will be {"organism": {"subsequence" : coords[]}}
 
-    def set_genomes_dict(self, dic_seq):
-        self.genomes_dict = dic_seq
-
-    def write(self, genomes_in):
-        to_write = ""
-        for gi in genomes_in:
-            for ref in self.genomes_dict[gi]:
-                to_write += ref + ':' + ','.join(self.genomes_dict[gi][ref]) + ';'
-        return to_write.strip(';')
-
-    def list_ref(self, org_name):
+    def _list_ref(self, org_name):
+        """Format occurences for an organism 
+        """
         list_ref = [{"ref": ref, "coords": self.occurences[org_name][ref]} for ref in self.occurences[org_name]]
         return list_ref
 
     def list_occ(self, taxon_name):
-        list_occurences = [{'org': taxon_name[genome], 'all_ref': self.list_ref(genome)} for genome in self.occurences]
+        """Format occurences for an organism
+        """
+        list_occurences = [{'org': taxon_name[genome], 'all_ref': self._list_ref(genome)} for genome in self.occurences]
         return list_occurences
 
     @property
     def number_occurences(self):
+        """Give the total number of hit occurences
+        
+        :return: Total number of hit occurences
+        :rtype: int
+        """
         nb_occ = 0
         for genome in self.occurences:
             for subseq in self.occurences[genome]:
@@ -76,6 +90,14 @@ class Hit():
         return f"index:{self.index}\nweight:{self.weight}\nsequence:{self.sequence}\noccurences:{self.occurences}"
 
     def store_occurences(self, couch_doc, genomes_in):
+        """Set occurences attributes from couch document
+        
+        :param couch_doc: couch response
+        :type couch_doc: Dict
+        :param genomes_in: list of genomes uuid
+        :type genomes_in: List[str]
+        :raises error.ConsistencyError: Raise if at least 1 given genome is not in couch document. 
+        """
         db_genomes = set(couch_doc.keys())
         logging.debug(f"store_occurences\ncouch_doc: {couch_doc}\ngenomes_in: {genomes_in}")
         if not set(genomes_in).issubset(db_genomes):
@@ -84,14 +106,12 @@ class Hit():
         self.occurences = {genome:couch_doc[genome] for genome in genomes_in}
 
     def decode(self):
+        """Decode setCompare index into nucleotide sequence
+        
+        :return: sgRNA sequence
+        :rtype: str
+        """
         return decoding.decode(self.index, ["A", "T", "C", "G"], 23)
-            
-
-def eprint(*args, **kwargs):
-    """
-    For printing only on the terminal
-    """
-    print(*args, file=sys.stderr, **kwargs)
 
 
 def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
@@ -100,6 +120,8 @@ def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_lengt
     The file is a tabulated file, with first column=sgrna sequence,
     then one column for each included organisms with list of positions
     of the sequence in each.
+
+    OBSOLETE, maybe we need this if we keep the option to download results.
     """
     eprint('\n\n-- Write results to file --')
     rep_rslt_file = workdir + '/results_allgenome.txt'
@@ -124,68 +146,3 @@ def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_lengt
         to_write = hit.write(genomes_in)
         output.write(to_write + '\n')
     output.close()
-
-
-def create_list_ref(dic_ref):
-    """
-    Create a list of references
-    """
-    list_ref = []
-    for ref in dic_ref:
-        dic = {"ref": ref, "coords": dic_ref[ref]}
-        list_ref.append(dic)
-    return list_ref
-
-
-def create_list_occurences(dic_occurences):
-    """
-    Create a list of occurences
-    """
-    list_occurences = []
-    for genome in dic_occurences:
-        dic_genome = {'org': genome, 'all_ref': create_list_ref(dic_occurences[genome])}
-        list_occurences.append(dic_genome)
-    return list_occurences
-
-
-def output_interface(dic_hits, workdir, nb_top):
-    """
-    Reformat the results to create a json file.
-    It will be parsed in javascript to display it in interface.
-    """
-    # eprint('\n\n-- Construct results for graphical interface --')
-    json_result_file = workdir + '/results.json'
-    list_dic = [{'sequence': sgrna, 'occurences':dic_hits[sgrna].list_occ()} for i, sgrna in itertools.takewhile(lambda x: x[0] < nb_top, enumerate(dic_hits)) ]
-    list_dic.reverse()
-    with open(json_result_file, 'w') as filout:
-        json.dump(list_dic, filout, indent=4)
-
-
-def display_hits(dic_hits, genomes_in, genomes_not_in, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
-    """
-    write output for interface
-    """
-    # Put results in local file for access via the interface.
-    write_to_file(genomes_in, genomes_not_in, dic_hits, pam,
-                  non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered)
-
-    # Output formatting for printing to interface
-    output_interface(dic_hits, workdir, 100)
-
-    dic_sorted_by_org = {genome : {} for genome in genomes_in}
-    if hit_obj:
-        for seq in dic_hits:
-            for genome in genomes_in:
-                for ref in dic_hits[seq].genomes_dict[genome]:
-                    if ref not in dic_sorted_by_org[genome]:
-                        dic_sorted_by_org[genome][ref] = {}
-                    dic_sorted_by_org[genome][ref][seq] = dic_hits[seq].genomes_dict[genome][ref]
-    else:
-        for seq in dic_hits:
-            for genome in genomes_in:
-                for coord_seq in dic_hits[seq].dic_org[genome]:
-                    ref = coord_seq.ref
-                    if ref not in dic_sorted_by_org[genome]:
-                        dic_sorted_by_org[genome][ref] = {}
-                    dic_sorted_by_org[genome][ref][seq] = coord_seq.list_coord
-    json.dump(dic_sorted_by_org, open("results_by_org.json", "w"))
