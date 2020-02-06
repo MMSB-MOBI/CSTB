@@ -62,7 +62,6 @@ class CrisprResultManagerOld:
         return sizes
             
     def set_taxon_names(self, include, exclude):
-        logging.info(f"YO {include} {exclude}")
         if include:
             self.include_taxon = self.get_taxon_name(include)
         if exclude:
