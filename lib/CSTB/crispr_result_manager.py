@@ -6,7 +6,7 @@ from CSTB.engine.crispr_hit import Hit
 import CSTB.utils.error as error
 import requests
 import time
-from typing import List, Dict, TypedDict
+from typing import List, Dict
 
 
 SESSION = requests.Session()
