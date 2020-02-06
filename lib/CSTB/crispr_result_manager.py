@@ -2,13 +2,20 @@ import logging
 import pycouch.error
 import re
 from collections import OrderedDict
-import CSTB.display_result as dspl
+import CSTB.crispr_hit.Hit as Hit
 import CSTB.error as error
 import requests
 import time
+from typing import List
+
 
 SESSION = requests.Session()
 SESSION.trust_env = False
+
+'''TO DO
+- make module that interrogate CSTB database (function get_taxon_name and get_genomes_size)
+- make module with wordIntegerIndexing, also use in crispr-manager
+'''
 
 class CrisprResult:
     def __init__(self, include, exclude):
@@ -19,7 +26,7 @@ class CrisprResult:
         pass
 
 
-class CrisprResultManagerOld:
+class CrisprResultManager:
     def __init__(self, pycouch_wrapper, taxondb, genomedb, motif_broker_endpoint, tag):
         self.wrapper = pycouch_wrapper
         self.motif_broker_endpoint = motif_broker_endpoint
@@ -34,7 +41,10 @@ class CrisprResultManagerOld:
 
     #Move this in some consumer
     def get_taxon_name(self, list_uuid):
-        taxon_names = {}
+        '''
+        Get taxon names from a list of genome uuid. Will interrogate couchDB genome db and taxon db. 
+        '''
+        correspondance_genome_taxon = {}
         logging.debug(f"Try to get taxon name for {list_uuid}")
         for g_uuid in list_uuid:
             logging.debug(g_uuid)
@@ -46,9 +56,9 @@ class CrisprResultManagerOld:
             resp = self.wrapper.couchGetDoc(self.taxondb, taxon_uuid)
             if not resp:
                 raise error.CouchNotFound(f"{self.wrapper.endpoint}/{self.taxondb}/{taxon_uuid} not found")
-            taxon_names[g_uuid] = resp["name"]
+            correspondance_genome_taxon[g_uuid] = resp["name"]
 
-        return taxon_names
+        return correspondance_genome_taxon
 
     #Move this in some consumer
     def get_genomes_size(self, list_uuid):
@@ -113,7 +123,7 @@ class CrisprResultManagerOld:
         i = 0
         for rank_occ in text[-1].strip().split(","):
             if i == to_keep: break
-            self.hits_collection.append(dspl.Hit(rank_occ.split(":")[0],rank_occ.split(":")[1]))
+            self.hits_collection.append(Hit(rank_occ.split(":")[0],rank_occ.split(":")[1]))
             #index_dic[int(rank_occ.split(":")[0])] = rank_occ.split(":")[1]
             i += 1
 

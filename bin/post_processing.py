@@ -1,7 +1,7 @@
 import logging
 logging.basicConfig(filename = "post_processing.log", level = logging.DEBUG, format='%(levelname)s\t%(message)s')
 import argparse
-from CSTB.crispr_result import CrisprResultManagerOld
+from CSTB.crispr_result_manager import CrisprResultManager
 import pycouch.wrapper as couch_wrapper
 import json
 import traceback
@@ -39,11 +39,11 @@ def args_gestion():
     return parser.parse_args()
 
 def error_exit(message): 
-    print({"emptySearch" : message})
+    print({"emptySearch" : message}) #Need to be json dumped
     traceback.print_exc()
     exit()
 
-if __name__ == '__main__':
+def main():
     logging.info("== post_processing.py")
     global PARAM
     PARAM = args_gestion()
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     if not wrapper.couchPing():
         error_exit("Can't ping couch database")
 
-    results = CrisprResultManagerOld(wrapper, PARAM.taxon_db, PARAM.genome_db, PARAM.motif_broker_endpoint, PARAM.tag)
+    results = CrisprResultManager(wrapper, PARAM.taxon_db, PARAM.genome_db, PARAM.motif_broker_endpoint, PARAM.tag)
 
     logging.info("= Interrogate couchDB to retrieve taxon name")
     try:
@@ -93,4 +93,12 @@ if __name__ == '__main__':
         error_exit("Error while format results")
     
     print(json.dumps(json_results))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except:
+        error_exit("Unhandled error in post_processing.py")
+    
 
