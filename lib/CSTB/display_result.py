@@ -35,7 +35,6 @@ import CSTB.error as error
 
 
 
-
 class Hit():
     """
     Object Hit containing the CRISPR sequence, indexes where it is found
@@ -45,7 +44,7 @@ class Hit():
         self.index = int(index)
         self.weight = weight
         self.sequence = self.decode()
-        self.occurences = {}
+        self.occurences = {} #This dictionnary will be {"organism": {"subsequence" : coords[]}}
 
     def set_genomes_dict(self, dic_seq):
         self.genomes_dict = dic_seq
@@ -65,21 +64,28 @@ class Hit():
         list_occurences = [{'org': taxon_name[genome], 'all_ref': self.list_ref(genome)} for genome in self.occurences]
         return list_occurences
 
+    @property
+    def number_occurences(self):
+        nb_occ = 0
+        for genome in self.occurences:
+            for subseq in self.occurences[genome]:
+                nb_occ += len(self.occurences[genome][subseq])
+        return nb_occ
+
     def __str__(self):
         return f"index:{self.index}\nweight:{self.weight}\nsequence:{self.sequence}\noccurences:{self.occurences}"
 
     def store_occurences(self, couch_doc, genomes_in):
         db_genomes = set(couch_doc.keys())
+        logging.debug(f"store_occurences\ncouch_doc: {couch_doc}\ngenomes_in: {genomes_in}")
         if not set(genomes_in).issubset(db_genomes):
-            error.error_exit(f"Consistency error. Genomes included are not in couch database for {self.sequence}")
+            raise error.ConsistencyError(f"Consistency error. Genomes included {genomes_in} are not in couch database for {self.sequence}")
         
         self.occurences = {genome:couch_doc[genome] for genome in genomes_in}
 
     def decode(self):
-        try:
-            return decoding.decode(self.index, ["A", "T", "C", "G"], 23)
-        except:
-            error.error_exit("Error while decoding index")
+        return decoding.decode(self.index, ["A", "T", "C", "G"], 23)
+            
 
 def eprint(*args, **kwargs):
     """
