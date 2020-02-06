@@ -27,6 +27,7 @@ class CrisprResultManagerOld:
         self.genomedb = genomedb
         self.tag = tag
         self.nb_total_hits = None
+        self.nb_treated_hits = None
         self.hits_collection = []
         self.include_taxon = {}
         self.exclude_taxon = {}
@@ -34,7 +35,9 @@ class CrisprResultManagerOld:
     #Move this in some consumer
     def get_taxon_name(self, list_uuid):
         taxon_names = {}
+        logging.debug(f"Try to get taxon name for {list_uuid}")
         for g_uuid in list_uuid:
+            logging.debug(g_uuid)
             resp = self.wrapper.couchGetDoc(self.genomedb, g_uuid)
             if not resp:
                 raise error.CouchNotFound(f"{self.wrapper.endpoint}/{self.genomedb}/{g_uuid} not found")
@@ -59,14 +62,17 @@ class CrisprResultManagerOld:
         return sizes
             
     def set_taxon_names(self, include, exclude):
-        self.include_taxon = self.get_taxon_name(include)
-        self.exclude_taxon = self.get_taxon_name(exclude)
+        logging.info(f"YO {include} {exclude}")
+        if include:
+            self.include_taxon = self.get_taxon_name(include)
+        if exclude:
+            self.exclude_taxon = self.get_taxon_name(exclude)
 
     def search_occurences(self, genomes_include, len_slice = 2000):
         try:
             SESSION.get(self.motif_broker_endpoint + "/handshake")
         except:
-            error.error_exit("Can't handshake motif-broker")
+            raise error.PingError(f"Can't handshake motif-broker at {self.motif_broker_endpoint}")
 
         results = {}
         for i in range(0, len(self.hits_collection), len_slice):
@@ -78,7 +84,7 @@ class CrisprResultManagerOld:
                 except:
                     joker += 1
                     if joker > 3:
-                        error.error_exit("Can't access to database after 3 tries")
+                        raise Exception(f"Can't interrogate motif-broker at {self.motif_broker_endpoint} after 3 tries")
                     time.sleep(5)
                     continue
                 break
@@ -86,39 +92,9 @@ class CrisprResultManagerOld:
         for hit in self.hits_collection:
             hit.store_occurences(results[hit.sequence], genomes_include)
            
-    def compute(self, include, exclude, setCompare_f, word_length, to_keep = 5000):
-        include_name = self.get_taxon_name(include)
-        exclude_name = self.get_taxon_name(exclude)
-
-        self.stored_taxon_name = {**include_name, **exclude_name}
-
-        try:
-            self.parse_set_compare(setCompare_f, word_length, to_keep)
-        except : 
-            error.error_exit("Error while parsing set compare")
-
-        for hit in self.hits_collection:
-            logging.debug(f"Hit object:\n{hit}")
-            break
-        
-        logging.info(f"{self.nb_total_hits} hits found. {to_keep} first are kept.")
-
-        try:
-            self.search_occurences(include)
-        except:
-            error.error_exit("Error while searching occurences in genomes.")
-        
-        for hit in self.hits_collection:
-            logging.debug(f"Hit object:\n{hit}")
-            break
-
-        results_json = self.format_results()
-
-        json = {"gi" : "&".join(list(include_name.values())), "not_in" : ",".join(list(exclude_name.values())), "data": results_json}
-
-        return json
 
     def parse_set_compare(self, setCompare_file, word_length, to_keep):
+        self.nb_treated_hits = to_keep
         self.hits_collection=[]
         logging.info(f"Parse set compare for word length {word_length}")
         if word_length == 20:
@@ -132,7 +108,7 @@ class CrisprResultManagerOld:
 
         self.nb_total_hits = re.search("[0-9]+", text[-2]).group()
         if int(self.nb_total_hits) == 0:
-            error.error_exit("No hits")
+            return
 
         index_dic = OrderedDict()
         i = 0
@@ -149,7 +125,7 @@ class CrisprResultManagerOld:
                 if regex_nb_hits:
                     nb_hits = int(regex_nb_hits.group(1))
                     if nb_hits == 0:
-                        error.error_exit("No hits")
+                        return
                     break
 
             index_dic = OrderedDict()
@@ -164,20 +140,25 @@ class CrisprResultManagerOld:
 
     def generate_json_data(self):
         results = []
-        for hit in self.hits_collection:
+        sorted_hits = sorted(self.hits_collection, key=lambda hit: hit.number_occurences)
+        #logging.debug([hit.number_occurences for hit in self.hits_collection])
+        logging.debug(max([hit.number_occurences for hit in self.hits_collection]))
+        for hit in sorted_hits:
             results.append({"sequence" : hit.sequence, "occurences" : hit.list_occ(self.include_taxon)})
+        logging.debug(results[-1])
         return results
 
     def generate_json_data_card(self):
 
-        def insert_in_data_card(genome, subseq, sequence, coords):
-            if genome not in data_card:
-                data_card[genome] = {}
+        def insert_in_data_card(genome_uuid, subseq, sequence, coords):
+            genome_name = self.include_taxon[genome_uuid]
+            if genome_name not in data_card:
+                data_card[genome_name] = {}
             
-            if subseq not in data_card[genome]:
-                data_card[genome][subseq] = {}
+            if subseq not in data_card[genome_name]:
+                data_card[genome_name][subseq] = {}
             
-            data_card[genome][subseq][hit.sequence] = hit.occurences[genome][subseq]
+            data_card[genome_name][subseq][hit.sequence] = hit.occurences[genome_uuid][subseq]
 
         data_card = {}
         for hit in self.hits_collection:
@@ -200,6 +181,7 @@ class CrisprResultManagerOld:
         final_json["gi"] = "&".join(list(self.include_taxon.values()))
         final_json["not_in"] = ",".join(list(self.exclude_taxon.values()))
         final_json["number_hits"] = self.nb_total_hits
+        final_json["number_treated_hits"] = self.nb_treated_hits
         final_json["data"] = self.generate_json_data()
         final_json["data_card"] = self.generate_json_data_card()
         final_json["tag"] = self.tag
