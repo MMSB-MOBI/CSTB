@@ -26,12 +26,11 @@ word    ref : coordinates   ref : coordinates   ref : coordinates...
 
 """
 
-import sys
-import json
-import itertools
 import CSTB.engine.wordIntegerIndexing as decoding
 import logging
 import CSTB.utils.error as error
+import operator
+import re
 
 
 
@@ -46,9 +45,11 @@ class Hit():
     :vartype sequence: str
     :ivar occurences: Occurences of sgRNA in genomes
     :vartype occurences: Dict { genome : { fasta_header : List[str] } }
+    :ivar index_longer: setCompare index for 20-length words
+    :vartype index_longer: List[int]
    
     """
-    def __init__(self, index, weight):
+    def __init__(self, index, weight, len_sgrna, longer_index = []):
         """ Initialize an Hit object
         
         :param index: setCompare index
@@ -58,8 +59,11 @@ class Hit():
         """
         self.index = int(index)
         self.weight = weight
-        self.sequence = self.decode()
+        self.sequence = self.decode(len_sgrna)
         self.occurences = {} #This dictionnary will be {"organism": {"subsequence" : coords[]}}
+        self.len_sgrna = len_sgrna
+        self.longer_index = longer_index
+        self.to_request_sequences = self.decode_longer() if self.longer_index else [self.sequence]
 
     def _list_ref(self, org_name):
         """Format occurences for an organism 
@@ -87,32 +91,88 @@ class Hit():
         return nb_occ
 
     def __str__(self):
-        return f"index:{self.index}\nweight:{self.weight}\nsequence:{self.sequence}\noccurences:{self.occurences}"
+        return f"index:{self.index}\nweight:{self.weight}\nsequence:{self.sequence}\noccurences:{self.occurences}\nindex_longer:{self.longer_index}\nto_request_sequences:{self.to_request_sequences}"
 
-    def store_occurences(self, couch_doc, genomes_in):
+    def store_occurences(self, list_couch_doc, genomes_in):
         """Set occurences attributes from couch document
         
-        :param couch_doc: couch response
-        :type couch_doc: Dict
+        :param list_couch_doc: couch responses
+        :type couch_doc: List[Dict]
         :param genomes_in: list of genomes uuid
         :type genomes_in: List[str]
         :raises error.ConsistencyError: Raise if at least 1 given genome is not in couch document. 
         """
+        logging.debug(f"Store couch doc\n {list_couch_doc}")
+
+        # If we have more than 1 couch document, merge into one
+        if len(list_couch_doc) > 1:
+            couch_doc = self.merge_occurences(list_couch_doc)
+        else:
+            couch_doc = list_couch_doc[0]
+        
+       
+        logging.debug(f"After merge :\n{couch_doc}")
+
         db_genomes = set(couch_doc.keys())
-        logging.debug(f"store_occurences\ncouch_doc: {couch_doc}\ngenomes_in: {genomes_in}")
         if not set(genomes_in).issubset(db_genomes):
             raise error.ConsistencyError(f"Consistency error. Genomes included {genomes_in} are not in couch database for {self.sequence}")
-        
+            
         self.occurences = {genome:couch_doc[genome] for genome in genomes_in}
 
-    def decode(self):
+        if self.longer_index:
+            self._update_coords()
+
+    def _update_coords(self):
+        def replace_coord(regex, op_func, coord, offset):
+            sgrna_start = int(re.search(regex, coord).group(1))
+            logging.debug(op_func(sgrna_start, offset))
+            new_coord = coord.replace(str(sgrna_start), str(op_func(sgrna_start, offset)))
+            return new_coord
+        
+        offset = 23 - self.len_sgrna
+
+        for genome in self.occurences:
+            for fasta_header in self.occurences[genome]:
+                current_coords = self.occurences[genome][fasta_header][:] #Save current coords
+                self.occurences[genome][fasta_header] = [] #Reinitialize coords
+                for coord in current_coords:
+                    logging.debug(f"CURRENT {coord}")
+                    new_coord = replace_coord("[+-]\(([0-9]*),", operator.add, coord, offset) if coord[0] == "+" else replace_coord(",([0-9]*)", operator.sub, coord, offset)
+                    logging.debug(f"NEW COORD {new_coord}")
+                    self.occurences[genome][fasta_header].append(new_coord)
+
+    def merge_occurences(self, list_couchdoc):
+        """Merge a list of couch document into one
+        
+        :param list_couchdoc: List of couch document corresponding to sgRNA entry (with just organism key and their values)
+        :type list_couchdoc: List[ {org(str) : {fasta_header(str) : coords(List[str]) } } ]
+        :return: Merged couch document
+        :rtype: Dict {org(str) : {fasta_header(str) : coords(List[str]) } }
+        """
+        logging.debug("Merge occurences")
+        merged_couchdoc = {}
+        for couchdoc in list_couchdoc:
+            for genome in couchdoc:
+                if genome not in merged_couchdoc:
+                    merged_couchdoc[genome] = {}
+                for fasta_header in couchdoc[genome]:
+                    if fasta_header not in merged_couchdoc[genome]:
+                        merged_couchdoc[genome][fasta_header] = []
+                    merged_couchdoc[genome][fasta_header] += couchdoc[genome][fasta_header]
+        return merged_couchdoc
+
+    def decode(self, len_seq):
         """Decode setCompare index into nucleotide sequence
         
         :return: sgRNA sequence
         :rtype: str
         """
-        return decoding.decode(self.index, ["A", "T", "C", "G"], 23)
+        return decoding.decode(self.index, ["A", "T", "C", "G"], len_seq)
 
+    def decode_longer(self, len_seq = 23):
+        if not self.longer_index:
+            return []
+        return [decoding.decode(index, ["A", "T", "C", "G"], len_seq) for index in self.longer_index]
 
 def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
     """

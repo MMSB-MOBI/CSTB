@@ -108,23 +108,32 @@ class CrisprResultManager():
         if exclude:
             self.exclude_taxon = self.get_taxon_name(exclude)
 
-    def search_occurences(self, genomes_include, len_slice = 2000):
-        #type: (List[str], int) -> None
+    def search_occurences(self, genomes_include, len_slice = 500):
+        #type: (List[str], int, int) -> None
         """Search sgRNA occurences in couchDB with motif broker and complete Hit objects.
         
         :param genomes_include: list of genome uuid
         :param len_slice: Length of packet to interrogate couchDB, defaults to 2000
+
         :raises error.PingError: Raise when motif-broker can't be reach
         """
         try:
             SESSION.get(self.motif_broker_endpoint + "/handshake")
         except:
             raise error.PingError(f"Can't handshake motif-broker at {self.motif_broker_endpoint}")
+        
+        all_seqs = [seq for hit in self.hits_collection for seq in hit.to_request_sequences]
 
+        bulk_requests = [all_seqs[i:i + len_slice] for i in range(0, len(all_seqs), len_slice)]
+
+        logging.debug(f"{len(all_seqs)} seqs to interrogate in couchDB")
+        logging.debug(f"{[len(r) for r in bulk_requests]} bulks")
+        
         results = {}
-        for i in range(0, len(self.hits_collection), len_slice):
+
+        for bulk in bulk_requests:
             joker = 0
-            request_sliced = {"keys" : [hit.sequence for hit in self.hits_collection[i : i + len_slice]]}
+            request_sliced = {"keys" : bulk}
             while True:
                 try:
                     results.update(SESSION.post(self.motif_broker_endpoint + "/bulk_request",json=request_sliced).json()["request"])
@@ -137,7 +146,8 @@ class CrisprResultManager():
                 break
         
         for hit in self.hits_collection:
-            hit.store_occurences(results[hit.sequence], genomes_include)
+            hit.store_occurences([results[seq] for seq in hit.to_request_sequences], genomes_include)
+            
            
 
     def parse_set_compare(self, setCompare_file, word_length, to_keep):
@@ -155,17 +165,19 @@ class CrisprResultManager():
         self.hits_collection=[]
         logging.info(f"Parse set compare for word length {word_length}")
         if word_length == 20:
-            self._parse_set_compare_20(setCompare_file, to_keep)
+            self._parse_set_compare_20(setCompare_file, to_keep, word_length)
         else:
-            logging.debug("Handle this")
+            self._parse_set_compare_other(setCompare_file, to_keep, word_length)
             
-    def _parse_set_compare_20(self, setCompare_file, to_keep):
+    def _parse_set_compare_20(self, setCompare_file, to_keep, word_length):
         """Parse setCompare for word of size 20. 
         
         :param setCompare_file: path to setCompare result file 
         :type setCompare_file: str
         :param to_keep: Number of hits to keep
         :type to_keep: int
+        :param word_length: sgRNA length
+        :type word_length: int
         """
 
         with open(setCompare_file, "r") as filin:
@@ -179,17 +191,20 @@ class CrisprResultManager():
         i = 0
         for rank_occ in text[-1].strip().split(","):
             if i == to_keep: break
-            self.hits_collection.append(Hit(rank_occ.split(":")[0],rank_occ.split(":")[1]))
+            self.hits_collection.append(Hit(rank_occ.split(":")[0],rank_occ.split(":")[1], word_length + 3))
             #index_dic[int(rank_occ.split(":")[0])] = rank_occ.split(":")[1]
             i += 1
 
-    def _parse_set_compare_other(self, setCompare_file, to_keep):
+    def _parse_set_compare_other(self, setCompare_file, to_keep, word_length):
+        logging.debug("parse set compare other")
         with open(setCompare_file, "r") as filin:
             for line in filin:
+                logging.debug(line)
                 regex_nb_hits = re.search("^# ([0-9]+)", line)
                 if regex_nb_hits:
-                    nb_hits = int(regex_nb_hits.group(1))
-                    if nb_hits == 0:
+                    self.nb_total_hits = int(regex_nb_hits.group(1))
+
+                    if self.nb_total_hits == 0:
                         return
                     break
 
@@ -198,10 +213,13 @@ class CrisprResultManager():
             for rank_occ in filin:
                 if i == to_keep or rank_occ == "\n": break
                 rank_splitted = rank_occ.split(":")
-                rankw20_occ = rank_splitted[1].split("[")
-                index_dic[int(rank_splitted[0])] = [rankw20_occ[0], rankw20_occ[1][:-2].split(",")]
+                
+                index_sgrna = rank_splitted[0]
+                weight = rank_splitted[1].split("[")[0]
+                index_longer_sgrna = [int(index.replace("'","")) for index in rank_occ.split("[")[1].rstrip("]\n").split(",")]
+                self.hits_collection.append(Hit(index_sgrna, weight, word_length + 3, index_longer_sgrna))
                 i += 1
-        return index_dic, nb_hits
+            logging.debug(f"First hit\n{self.hits_collection[0]}")
 
     def generate_json_data(self):
         """Generate json data for client (to display into table) from Hit collection. 

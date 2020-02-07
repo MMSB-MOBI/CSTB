@@ -96,9 +96,6 @@ def main():
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except:
-        error_exit("Unhandled error in post_processing.py")
+   main()
     
 
