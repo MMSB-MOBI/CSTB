@@ -32,6 +32,42 @@ import CSTB.utils.error as error
 import operator
 import re
 
+class Occurence():
+    def __init__(self, sgRNA, genome, fasta_header, coords):
+        self.sgRNA = sgRNA
+        self.genome = genome
+        self.fasta_header = fasta_header
+        self.coords = coords
+
+    def keepOnGene(self, genes):
+        """Keep coordinates from occurence that are on corresponding homolog gene. Return None if occurence is not on gene.
+        
+        :param genes: Blast hits for included genomes
+        :type genes: List[BlastHit]
+        :raises error.SeveralGenes: raise if we have more than one hit for one genome and one fasta_header. Probably needs to be handled.
+        :return: new Occurence with just on gene coordinates if the current occurence is on gene
+        :rtype: Occurence or None
+        """
+        def isOnGene(coord, gene):
+            start = int(re.search("[+-]\(([0-9]*),", coord).group(1))
+            end = int(re.search(",([0-9]*)", coord).group(1))
+            return gene.start <= start and gene.end >= end
+
+        gene = [ gene for gene in genes if gene.org_uuid == self.genome ]
+        if not gene:
+            return None
+
+        if len(gene) > 1:
+            raise error.SeveralGenes(f"Several genes hits for {self.genome} {self.fasta_header}")
+        
+        gene = gene[0]
+        new_coords = []
+        for coord in self.coords:
+            if isOnGene(coord, gene):
+                new_coords.append(coord)
+        if new_coords:
+            return Occurence(self.sgRNA, self.genome, self.fasta_header, new_coords)
+
 
 
 class Hit():
@@ -60,10 +96,29 @@ class Hit():
         self.index = int(index)
         self.weight = weight
         self.sequence = self.decode(len_sgrna)
-        self.occurences = {} #This dictionnary will be {"organism": {"subsequence" : coords[]}}
+        self.list_occurences = []
+        self.on_gene_occurences = []
         self.len_sgrna = len_sgrna
         self.longer_index = longer_index
         self.to_request_sequences = self.decode_longer() if self.longer_index else [self.sequence]
+
+    @property
+    def occurences(self): #This dictionnary will be {"organism": {"subsequence" : coords[]}}
+        """A way to keep old comportment for the creation of output dictionnaries.
+        """
+        if not hasattr(self, "formated_occurences"):
+            self._format_occurences()
+        return self.formated_occurences
+
+    def _format_occurences(self):
+        occurences = {}
+        for occ in self.list_occurences:
+            if occ.genome not in occurences: 
+                occurences[occ.genome] = {}
+            
+            occurences[occ.genome][occ.fasta_header] = occ.coords
+            
+        self.formated_occurences = occurences
 
     def _list_ref(self, org_name):
         """Format occurences for an organism 
@@ -117,7 +172,9 @@ class Hit():
         if not set(genomes_in).issubset(db_genomes):
             raise error.ConsistencyError(f"Consistency error. Genomes included {genomes_in} are not in couch database for {self.sequence}")
             
-        self.occurences = {genome:couch_doc[genome] for genome in genomes_in}
+        for genome in genomes_in:
+            for fasta_header in couch_doc[genome]:
+                self.list_occurences.append(Occurence(self, genome, fasta_header, couch_doc[genome][fasta_header]))
 
         if self.longer_index:
             self._update_coords()
@@ -173,6 +230,22 @@ class Hit():
         if not self.longer_index:
             return []
         return [decoding.decode(index, ["A", "T", "C", "G"], len_seq) for index in self.longer_index]
+
+
+    def storeOnGeneOccurences(self, genes):
+        """Fill on gene occurences. From current occurences, just keep the occurences that are on gene with just corresponding coordinates.
+        
+        :param genes: List of blast hits corresponding to homolog genes of included genomes.
+        :type genes: List[BlastHit]
+        """
+        for occ in self.list_occurences:
+            new_occ = occ.keepOnGene(genes)
+            if new_occ:
+                self.on_gene_occurences.append(occ)
+
+
+
+
 
 def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
     """
