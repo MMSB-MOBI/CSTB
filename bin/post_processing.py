@@ -5,6 +5,7 @@ from CSTB.crispr_result_manager import CrisprResultManager
 import pycouch.wrapper as couch_wrapper
 import json
 import traceback
+import CSTB.utils.error as error
 
 '''TO DO
 - Add verbosity parameter
@@ -36,11 +37,18 @@ def args_gestion():
     parser.add_argument("--length", metavar="<int>", help = "sgRNA length (exclude pam)", required = True, type=int)
     parser.add_argument("--motif_broker_endpoint", metavar="<url>", help = "Motif broker endpoint", required = True)
     parser.add_argument("--tag", metavar = "<str>", help = "tag for outputs", required = True)
+    parser.add_argument("--blast", metavar = "<file>", help = "Blast results (xml format) if specific gene")
     return parser.parse_args()
 
 def error_exit(message): 
-    print({"emptySearch" : message}) #Need to be json dumped
+    json_dic = {"error" : message}
+    print(json.dumps(json_dic)) #Need to be json dumped
     traceback.print_exc()
+    exit()
+
+def empty_exit(message):
+    json_dic = {"emptySearch" : message}
+    print(json.dumps(json_dic))
     exit()
 
 def main():
@@ -78,7 +86,7 @@ def main():
         error_exit("Error while parse setCompare")
 
     if not results.hits_collection:
-        error_exit("No hits")
+        empty_exit("No hits")
     
     logging.info("= Search sgrna occurences in couchDB")
     try:
@@ -86,9 +94,33 @@ def main():
     except:
         error_exit("Error while search sgRNA occurences in couchDB")
 
+    if PARAM.blast:
+        logging.info("= Parse Blast")
+        try: 
+            results.parseBlast(PARAM.blast, 70, include)
+        except error.NoBlastHit:
+            empty_exit("No blast hit for your gene.")
+        except error.NoHomolog :
+            empty_exit(f"Some organisms don't have homolog gene.")
+        except:
+            error_exit("Error while parse blast")
+        
+        logging.debug(f"Before filter {len(results.hits_collection)}")
+        filtered_results = results.filterOnGeneOccurences()
+        logging.debug(f"After filter {len(filtered_results.hits_collection)}")
+    
+    else:
+        filtered_results = results
+
+    logging.info(f"{len(filtered_results.hits_collection)}")
+
+    #for hit in filtered_results.hits_collection:
+    #    if len(hit.occurences.keys()) > 1:
+    #        logging.debug(f"WHAT THE FUCK {hit.occurences.keys()}")
+
     logging.info("= Format results")
     try:
-        json_results = results.format_results()
+        json_results = filtered_results.format_results()
     except:
         error_exit("Error while format results")
     
@@ -98,4 +130,3 @@ def main():
 if __name__ == '__main__':
    main()
     
-
