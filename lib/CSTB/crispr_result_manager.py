@@ -7,6 +7,7 @@ import CSTB.utils.error as error
 import requests
 import time
 from typing import List, Dict
+from CSTB.engine.crispr_blast import BlastReport
 
 
 SESSION = requests.Session()
@@ -34,17 +35,17 @@ class CrisprResultManager():
 
     """
 
-    def __init__(self, pycouch_wrapper, taxondb, genomedb, motif_broker_endpoint, tag):
+    def __init__(self, pycouch_wrapper, taxondb, genomedb, motif_broker_endpoint, tag, include_taxon = {}, exclude_taxon = {}, nb_total_hits = None, nb_treated_hits = None, hits_collection = []):
         self.wrapper = pycouch_wrapper
         self.motif_broker_endpoint = motif_broker_endpoint
         self.taxondb = taxondb
         self.genomedb = genomedb
         self.tag = tag
-        self.nb_total_hits = None
-        self.nb_treated_hits = None
-        self.hits_collection = []
-        self.include_taxon = {}
-        self.exclude_taxon = {}
+        self.nb_total_hits = nb_total_hits
+        self.nb_treated_hits = nb_treated_hits
+        self.hits_collection = hits_collection
+        self.include_taxon = include_taxon
+        self.exclude_taxon = exclude_taxon
 
     #Move this in some consumer
     def get_taxon_name(self, list_uuid):
@@ -292,9 +293,45 @@ class CrisprResultManager():
         final_json["size"] = self.generate_json_size()
 
         return final_json
-       
-            
 
+    def parseBlast(self, blast_xml, identity, included_genomes):
+        """Take blast xml file and parse it. Just keep homolog genes with more than defined identity and just keep coordinates that maps with homolog genes.
+        
+        :param blast_xml: path to blast xml result
+        :type blast_xml: str
+        :param identity: minimum identity percentage
+        :type identity: int
+        :param included_genomes: list of included genomes uuid
+        :type included_genomes: List[str]
+        :raises error.NoBlastHit: Raise if there is no blast hit at all
+        :raises error.NoHomolog: Raise if at least 1 included genome has not an homolog gene.
+        """
+        blast_report = BlastReport(blast_xml, identity, included_genomes)
+        if not blast_report.is_hit():
+            raise error.NoBlastHit("No blast hit")
+
+        logging.debug(f"Blast homolog genes {blast_report.homolog_genes}")
+
+        # Check if all organisms have homolog genes
+        if set(included_genomes) != blast_report.organisms:
+            raise error.NoHomolog(set(included_genomes).difference(blast_report.organisms))
+
+        included_genes = blast_report.filterGenes(included_genomes)   
+        
+        for hit in self.hits_collection:
+            hit.storeOnGeneOccurences(included_genes)
+
+    def filterOnGeneOccurences(self):
+        """Filter results to just keep hits with occurences on Gene. Return a new CrisprResultsManager object with a new hits collection.
+        
+        :return: new CrisprResultManager with same attributes as the current one, except for hit collection. 
+        :rtype: CrisprResultManager
+        """
+        new_hit_collection = [hit for hit in self.hits_collection if hit.on_gene_occurences]
+        new_results = CrisprResultManager(self.wrapper, self.taxondb, self.genomedb, self.motif_broker_endpoint, self.tag, self.include_taxon, self.exclude_taxon, self.nb_total_hits, self.nb_treated_hits, new_hit_collection)
+        return new_results
+        
+    
 
 
 
