@@ -6,3 +6,12 @@ class ConsistencyError(Exception):
 
 class PingError(Exception):
     pass
+
+class NoHomolog(Exception):
+    pass
+
+class NoBlastHit(Exception):
+    pass
+
+class SeveralGenes(Exception):
+    pass
