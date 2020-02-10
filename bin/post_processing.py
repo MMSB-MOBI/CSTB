@@ -105,9 +105,10 @@ def main():
         except:
             error_exit("Error while parse blast")
         
-        logging.debug(f"Before filter {len(results.hits_collection)}")
-        filtered_results = results.filterOnGeneOccurences()
-        logging.debug(f"After filter {len(filtered_results.hits_collection)}")
+        try:
+            filtered_results = results.filterOnGeneOccurences()
+        except:
+            error_exit("Error while filter blast results")
     
     else:
         filtered_results = results
