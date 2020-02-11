@@ -35,7 +35,7 @@ class CrisprResultManager():
 
     """
 
-    def __init__(self, pycouch_wrapper, taxondb, genomedb, motif_broker_endpoint, tag, include_taxon = {}, exclude_taxon = {}, nb_total_hits = None, nb_treated_hits = None, hits_collection = []):
+    def __init__(self, pycouch_wrapper, taxondb, genomedb, motif_broker_endpoint, tag, include_taxon = {}, exclude_taxon = {}, nb_total_hits = None, nb_treated_hits = None, hits_collection = [], homolog_genes = []):
         self.wrapper = pycouch_wrapper
         self.motif_broker_endpoint = motif_broker_endpoint
         self.taxondb = taxondb
@@ -46,6 +46,7 @@ class CrisprResultManager():
         self.hits_collection = hits_collection
         self.include_taxon = include_taxon
         self.exclude_taxon = exclude_taxon
+        self.homolog_genes = homolog_genes
 
     #Move this in some consumer
     def get_taxon_name(self, list_uuid):
@@ -276,7 +277,7 @@ class CrisprResultManager():
         
         return json_size
         
-    def format_results(self):
+    def format_results(self, blast = False):
         """Create the final json for client
         
         :return: final json
@@ -291,6 +292,8 @@ class CrisprResultManager():
         final_json["data_card"] = self.generate_json_data_card()
         final_json["tag"] = self.tag
         final_json["size"] = self.generate_json_size()
+        if blast:
+            final_json["gene"] = self.generateGeneData()
 
         return final_json
 
@@ -316,10 +319,10 @@ class CrisprResultManager():
         if set(included_genomes) != blast_report.organisms:
             raise error.NoHomolog(set(included_genomes).difference(blast_report.organisms))
 
-        included_genes = blast_report.filterGenes(included_genomes)   
+        self.homolog_genes = blast_report.filterGenes(included_genomes)   
         
         for hit in self.hits_collection:
-            hit.storeOnGeneOccurences(included_genes)
+            hit.storeOnGeneOccurences(self.homolog_genes)
 
     def filterOnGeneOccurences(self):
         """Filter results to just keep hits with occurences on Gene. Return a new CrisprResultsManager object with a new hits collection.
@@ -328,8 +331,22 @@ class CrisprResultManager():
         :rtype: CrisprResultManager
         """
         new_hit_collection = [hit for hit in self.hits_collection if hit.on_gene_occurences]
-        new_results = CrisprResultManager(self.wrapper, self.taxondb, self.genomedb, self.motif_broker_endpoint, self.tag, self.include_taxon, self.exclude_taxon, self.nb_total_hits, self.nb_treated_hits, new_hit_collection)
+        new_results = CrisprResultManager(self.wrapper, self.taxondb, self.genomedb, self.motif_broker_endpoint, self.tag, self.include_taxon, self.exclude_taxon, self.nb_total_hits, self.nb_treated_hits, new_hit_collection, self.homolog_genes)
         return new_results
+
+    def generateGeneData(self):
+        json = {}
+        for gene in self.homolog_genes:
+            org_name = self.include_taxon[gene.org_uuid]
+            if org_name not in json:
+                json[org_name] = {}
+            if gene.fasta_header not in json[org_name]:
+                json[org_name][gene.fasta_header] = []
+            
+            json[org_name][gene.fasta_header].append({"start": gene.start, "end": gene.end})
+        
+        return json
+
         
     
 

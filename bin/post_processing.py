@@ -121,7 +121,10 @@ def main():
 
     logging.info("= Format results")
     try:
-        json_results = filtered_results.format_results()
+        blast = False
+        if PARAM.blast:
+            blast = True
+        json_results = filtered_results.format_results(blast)
     except:
         error_exit("Error while format results")
     
