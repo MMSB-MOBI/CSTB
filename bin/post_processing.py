@@ -4,7 +4,6 @@ import argparse
 from CSTB.crispr_result_manager import CrisprResultManager
 import pycouch.wrapper as couch_wrapper
 import json
-import traceback
 import CSTB.utils.error as error
 from CSTB.utils.error import empty_exit, error_exit
 
