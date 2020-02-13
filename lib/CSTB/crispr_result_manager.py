@@ -15,7 +15,6 @@ SESSION.trust_env = False
 
 '''TO DO
 - make module that interrogate CSTB database (function get_taxon_name and get_genomes_size)
-- make module with wordIntegerIndexing, also use in crispr-manager
 '''
 
 class CrisprResultManager():
@@ -335,6 +334,11 @@ class CrisprResultManager():
         return new_results
 
     def generateGeneData(self):
+        """Generate json data for homolog genes when blast is used
+        
+        :return: json data
+        :rtype: Dict -> {organism_name (str): {fasta_header (str) : [{'start' : gene.start(int), 'end' : gene.end(int)}] }}
+        """
         json = {}
         for gene in self.homolog_genes:
             org_name = self.include_taxon[gene.org_uuid]

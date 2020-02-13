@@ -1,30 +1,4 @@
 #!/usr/bin/env python3
-"""
-Display results:
-Contain object Hit, which contains the sgRNA, its score and the dictionary containing
-genomes and references where it is present and its coordinates
-
-Write json and text files with results from the intersection of genomes
-
-****** Format of the json file ******
-{'sequence' : word, 'occurences' :
-                                    {'org' : genome, 'all_ref' :
-                                                                {'ref' : ref, 'coords' : [coordinates]
-                                                               }
-                                    }
-}
-
-****** Format of the text file ******
-#ALL GENOMES
-#Genomes included : *list of genomes*  ; Genomes excluded : *list of genomes*
-#Parameters: pam: *PAM* ; sgrna size: *size*
-        genome_in_1     genome_in_2     genomes_in_3...
-word    ref : coordinates   ref : coordinates   ref : coordinates...
-.
-.
-.
-
-"""
 
 import CSTB_core.engine.wordIntegerIndexing as decoding
 import logging
@@ -226,6 +200,13 @@ class Hit():
         return decoding.decode(self.index, ["A", "T", "C", "G"], len_seq)
 
     def decode_longer(self, len_seq = 23):
+        """Decode words from self.longer_index
+        
+        :param len_seq: Word length, defaults to 23
+        :type len_seq: int, optional
+        :return: list of sgRNA sequence
+        :rtype: List[str]
+        """
         if not self.longer_index:
             return []
         return [decoding.decode(index, ["A", "T", "C", "G"], len_seq) for index in self.longer_index]
