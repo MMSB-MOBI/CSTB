@@ -1,8 +1,8 @@
 '''
 create_metafile.py at the origin
 '''
-from CSTB.engine.word_detect import sgRNAfastaSearch
-from CSTB.engine.wordIntegerIndexing import indexAndOccurence, writeIndexes
+from CSTB_core.engine.word_detect import sgRNAfastaSearch
+from CSTB_core.engine.wordIntegerIndexing import indexAndOccurence, writeIndexes
 import os.path
 import argparse
 import logging

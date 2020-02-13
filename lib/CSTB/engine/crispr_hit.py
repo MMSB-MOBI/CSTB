@@ -26,7 +26,7 @@ word    ref : coordinates   ref : coordinates   ref : coordinates...
 
 """
 
-import CSTB.engine.wordIntegerIndexing as decoding
+import CSTB_core.engine.wordIntegerIndexing as decoding
 import logging
 import CSTB.utils.error as error
 import operator
