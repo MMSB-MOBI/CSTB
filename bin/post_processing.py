@@ -115,10 +115,6 @@ def main():
 
     logging.info(f"{len(filtered_results.hits_collection)}")
 
-    #for hit in filtered_results.hits_collection:
-    #    if len(hit.occurences.keys()) > 1:
-    #        logging.debug(f"WHAT THE FUCK {hit.occurences.keys()}")
-
     logging.info("= Format results")
     try:
         blast = False
@@ -132,5 +128,5 @@ def main():
 
 
 if __name__ == '__main__':
-   main()
+    main()
     

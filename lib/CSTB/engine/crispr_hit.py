@@ -45,28 +45,27 @@ class Occurence():
         :param genes: Blast hits for included genomes
         :type genes: List[BlastHit]
         :raises error.SeveralGenes: raise if we have more than one hit for one genome and one fasta_header. Probably needs to be handled.
-        :return: new Occurence with just on gene coordinates if the current occurence is on gene
-        :rtype: Occurence or None
+        :return: list of new Occurence with just on gene coordinates if the current occurence is on gene
+        :rtype: List[Occurence] or None
         """
         def isOnGene(coord, gene):
             start = int(re.search("[+-]\(([0-9]*),", coord).group(1))
             end = int(re.search(",([0-9]*)", coord).group(1))
             return gene.start <= start and gene.end >= end
 
-        gene = [ gene for gene in genes if gene.org_uuid == self.genome ]
-        if not gene:
+        homolog_genes = [ gene for gene in genes if gene.org_uuid == self.genome ]
+        if not homolog_genes:
             return None
-
-        if len(gene) > 1:
-            raise error.SeveralGenes(f"Several genes hits for {self.genome} {self.fasta_header}")
         
-        gene = gene[0]
-        new_coords = []
-        for coord in self.coords:
-            if isOnGene(coord, gene):
-                new_coords.append(coord)
-        if new_coords:
-            return Occurence(self.sgRNA, self.genome, self.fasta_header, new_coords)
+        list_new_occurences = []
+        for homolog_gene in homolog_genes:
+            new_coords = []
+            for coord in self.coords:
+                if isOnGene(coord, homolog_gene):
+                    new_coords.append(coord)
+            if new_coords:
+                list_new_occurences.append(Occurence(self.sgRNA, self.genome, self.fasta_header, new_coords))
+        return list_new_occurences
 
 
 
@@ -241,11 +240,7 @@ class Hit():
         for occ in self.list_occurences:
             new_occ = occ.keepOnGene(genes)
             if new_occ:
-                self.on_gene_occurences.append(occ)
-
-
-
-
+                self.on_gene_occurences += new_occ
 
 def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
     """

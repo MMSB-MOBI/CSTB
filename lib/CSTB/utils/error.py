@@ -12,6 +12,3 @@ class NoHomolog(Exception):
 
 class NoBlastHit(Exception):
     pass
-
-class SeveralGenes(Exception):
-    pass
