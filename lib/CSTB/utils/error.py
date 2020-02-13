@@ -1,4 +1,5 @@
 import json
+import traceback
 
 class CouchNotFound(Exception):
     pass
