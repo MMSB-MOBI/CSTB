@@ -6,6 +6,7 @@ import pycouch.wrapper as couch_wrapper
 import json
 import traceback
 import CSTB.utils.error as error
+from CSTB.utils.error import empty_exit, error_exit
 
 '''TO DO
 - Add verbosity parameter
@@ -39,17 +40,6 @@ def args_gestion():
     parser.add_argument("--tag", metavar = "<str>", help = "tag for outputs", required = True)
     parser.add_argument("--blast", metavar = "<file>", help = "Blast results (xml format) if specific gene")
     return parser.parse_args()
-
-def error_exit(message): 
-    json_dic = {"error" : message}
-    print(json.dumps(json_dic)) #Need to be json dumped
-    traceback.print_exc()
-    exit()
-
-def empty_exit(message):
-    json_dic = {"emptySearch" : message}
-    print(json.dumps(json_dic))
-    exit()
 
 def main():
     logging.info("== post_processing.py")

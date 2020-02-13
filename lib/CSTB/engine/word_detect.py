@@ -99,11 +99,14 @@ def sgRNAfastaSearch(fasta_file, organism, pam="NGG", non_pam_motif_length=20):
     """
     sgrna = "N" * non_pam_motif_length + pam
     seq_dict = {}
+    word_length = non_pam_motif_length + len(pam)
 
     #for genome_seqrecord in SeqIO.parse(fasta_file, "fasta"):
     with zFile(fasta_file) as handle:
         for genome_seqrecord in SeqIO.parse(handle, "fasta"):
             genome_seq = genome_seqrecord.seq
+            if len(genome_seq) < word_length:
+                return {}
             ref = genome_seqrecord.id
             seq_list_forward = find_indices_sgrna(str(genome_seq),
                                                 complement_seq(sgrna))
