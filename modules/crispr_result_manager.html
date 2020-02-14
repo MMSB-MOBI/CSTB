@@ -1,0 +1,405 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>CSTB result manager &mdash; CSTB 2.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Engines" href="engine.html" />
+    <link rel="prev" title="Modules" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> CSTB
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Modules</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">CSTB result manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="engine.html">Engines</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">CSTB</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Modules</a> &raquo;</li>
+        
+      <li>CSTB result manager</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/modules/crispr_result_manager.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-CSTB.crispr_result_manager">
+<span id="cstb-result-manager"></span><h1>CSTB result manager<a class="headerlink" href="#module-CSTB.crispr_result_manager" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager">
+<em class="property">class </em><code class="sig-prename descclassname">CSTB.crispr_result_manager.</code><code class="sig-name descname">CrisprResultManager</code><span class="sig-paren">(</span><em class="sig-param">pycouch_wrapper</em>, <em class="sig-param">taxondb</em>, <em class="sig-param">genomedb</em>, <em class="sig-param">motif_broker_endpoint</em>, <em class="sig-param">tag</em>, <em class="sig-param">include_taxon={}</em>, <em class="sig-param">exclude_taxon={}</em>, <em class="sig-param">nb_total_hits=None</em>, <em class="sig-param">nb_treated_hits=None</em>, <em class="sig-param">hits_collection=[]</em>, <em class="sig-param">homolog_genes=[]</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manager for crispr results</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>wrapper (pycouch.wrapper.Wrapper): pycouch wrapper to interrogate couchDB
+motif_broker_endpoint (str): motif-broker endpoint to get sgRNA occurences from couchDB with mapping
+taxondb (str): taxon database name
+genomedb (str): genome database name
+tag (str): tag for result storage
+nb_total_hits (int): Number of hits found by setCompare. Set with parse_set_compare() call.
+nb_treated_hits (int): Number of setCompare hits treated by this manager. Set with parse_set_compare() call.
+hits_collection (List[Hit]) : List of Hit objects
+include_taxon (Dict) : Dict with included genomes uuid as keys and corresponding taxon name as value
+exclude_taxon (Dict) : Dict with included genomes uuid as keys and corresponding taxon name as value</p>
+</dd>
+</dl>
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.get_taxon_name">
+<code class="sig-name descname">get_taxon_name</code><span class="sig-paren">(</span><em class="sig-param">list_uuid</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.get_taxon_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get taxon names for a list of genome uuid. Will interrogate couchDB genome db and taxon db.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>list_uuid (List[str]): list of genomes uuid</p>
+</dd>
+<dt>Raises:</dt><dd><p>error.CouchNotFound: Raise when couch document is not found</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.get_genomes_size">
+<code class="sig-name descname">get_genomes_size</code><span class="sig-paren">(</span><em class="sig-param">list_uuid</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.get_genomes_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get genome size for a list of genomes uuid. Interrogate couchDB genome database.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>list_uuid (List[str]): list of genomes uuid</p>
+</dd>
+<dt>Raises:</dt><dd><p>error.CouchNotFound: [description]</p>
+</dd>
+<dt>Returns:</dt><dd><p>Dict: Dict with genome_uuid as key and size dict as value. Size dict contains subsequence name as key and list of coordinates as value.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.set_taxon_names">
+<code class="sig-name descname">set_taxon_names</code><span class="sig-paren">(</span><em class="sig-param">include</em>, <em class="sig-param">exclude</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.set_taxon_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get taxon names for include and exclude genomes uuid. Call get_taxon_name() and set include_taxon and exclude_taxon attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>include</strong> – List of include genome uuid</p></li>
+<li><p><strong>exclude</strong> – List of exclude genome uuid</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.search_occurences">
+<code class="sig-name descname">search_occurences</code><span class="sig-paren">(</span><em class="sig-param">genomes_include</em>, <em class="sig-param">len_slice=500</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.search_occurences" title="Permalink to this definition">¶</a></dt>
+<dd><p>Search sgRNA occurences in couchDB with motif broker and complete Hit objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>genomes_include</strong> – list of genome uuid</p></li>
+<li><p><strong>len_slice</strong> – Length of packet to interrogate couchDB, defaults to 2000</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><strong>error.PingError</strong> – Raise when motif-broker can’t be reach</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.parse_set_compare">
+<code class="sig-name descname">parse_set_compare</code><span class="sig-paren">(</span><em class="sig-param">setCompare_file</em>, <em class="sig-param">word_length</em>, <em class="sig-param">to_keep</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.parse_set_compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse results from setCompare. Will call a different parsing function for word with size 20 and for shorter words. Separate functions are required because setCompare results format is not the same with with 20-length words and shorter words. Initialize hits_collection and nb_treated_hits</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>setCompare_file</strong> (<em>str</em>) – path to setCompare result file</p></li>
+<li><p><strong>word_length</strong> (<em>int</em>) – Word length</p></li>
+<li><p><strong>to_keep</strong> (<em>int</em>) – Number of hits to keep</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.generate_json_data">
+<code class="sig-name descname">generate_json_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.generate_json_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate json data for client (to display into table) from Hit collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>json data,</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>List[Dict]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.generate_json_data_card">
+<code class="sig-name descname">generate_json_data_card</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.generate_json_data_card" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate json data for client to display genomic card from Hit collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>json data</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>Dict { organism : { fasta_header : { sgRNA_sequence : List[str] } } }</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.generate_json_size">
+<code class="sig-name descname">generate_json_size</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.generate_json_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>[summary]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>json data</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>Dict { organism : { fasta_header : length } }</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.format_results">
+<code class="sig-name descname">format_results</code><span class="sig-paren">(</span><em class="sig-param">blast=False</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.format_results" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create the final json for client</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>final json</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>Dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.parseBlast">
+<code class="sig-name descname">parseBlast</code><span class="sig-paren">(</span><em class="sig-param">blast_xml</em>, <em class="sig-param">identity</em>, <em class="sig-param">included_genomes</em><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.parseBlast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Take blast xml file and parse it. Just keep homolog genes with more than defined identity and just keep coordinates that maps with homolog genes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>blast_xml</strong> (<em>str</em>) – path to blast xml result</p></li>
+<li><p><strong>identity</strong> (<em>int</em>) – minimum identity percentage</p></li>
+<li><p><strong>included_genomes</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – list of included genomes uuid</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>error.NoBlastHit</strong> – Raise if there is no blast hit at all</p></li>
+<li><p><strong>error.NoHomolog</strong> – Raise if at least 1 included genome has not an homolog gene.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.filterOnGeneOccurences">
+<code class="sig-name descname">filterOnGeneOccurences</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.filterOnGeneOccurences" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter results to just keep hits with occurences on Gene. Return a new CrisprResultsManager object with a new hits collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>new CrisprResultManager with same attributes as the current one, except for hit collection.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#CSTB.crispr_result_manager.CrisprResultManager" title="CSTB.crispr_result_manager.CrisprResultManager">CrisprResultManager</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="CSTB.crispr_result_manager.CrisprResultManager.generateGeneData">
+<code class="sig-name descname">generateGeneData</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#CSTB.crispr_result_manager.CrisprResultManager.generateGeneData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate json data for homolog genes when blast is used</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>json data</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>Dict -&gt; {organism_name (str): {fasta_header (str) : [{‘start’ : gene.start(int), ‘end’ : gene.end(int)}] }}</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="engine.html" class="btn btn-neutral float-right" title="Engines" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="Modules" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, C.Hilpert, G.Launay, S.Lematre
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

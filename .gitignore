@@ -1,4 +1,5 @@
 __pycache__
-sphinx-doc/
 bin/test_pycouch.py
 scripts/test_pycouch.sh
+sphinx-doc/build
+sphinx-doc/source/_*
