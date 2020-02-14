@@ -1,3 +1,5 @@
+This readme is obsolete
+
 # CRISPR : search common sgrna sequences to target bacterial strains
 This script is a part of a pipeline which allows to find common sgrna from a set of genomes of bacteria which cannot match with a set of other genomes.
 
