@@ -79,8 +79,7 @@ class Hit():
     def occurences(self): #This dictionnary will be {"organism": {"subsequence" : coords[]}}
         """A way to keep old comportment for the creation of output dictionnaries.
         """
-        if not hasattr(self, "formated_occurences"):
-            self._format_occurences()
+        self._format_occurences()
         return self.formated_occurences
 
     def _format_occurences(self):
