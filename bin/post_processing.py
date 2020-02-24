@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(filename = "post_processing.log", level = logging.DEBUG, format='%(levelname)s\t%(message)s')
+logging.basicConfig(filename = "post_processing.log", level = logging.INFO, format='%(levelname)s\t%(message)s')
 import argparse
 from CSTB.crispr_result_manager import CrisprResultManager
 import pycouch.wrapper as couch_wrapper
