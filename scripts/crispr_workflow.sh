@@ -16,7 +16,7 @@ run_setCompare() {
     slFlag=""
     if [ "$sl" != "20" ]; then
         ((_sl = $sl + 3))
-        slFlag="-d 23 -c ${_sl}"
+        slFlag="-c ${_sl}"
     fi
     fileSet="set_index.txt"
     echo setCompare $slFlag -i "$gi" -o "$gni" -l $rfg -e index -f $fileSet > setCompare.cmd

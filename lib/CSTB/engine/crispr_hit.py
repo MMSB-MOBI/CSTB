@@ -56,9 +56,11 @@ class Hit():
     :vartype occurences: Dict { genome : { fasta_header : List[str] } }
     :ivar index_longer: setCompare index for 20-length words
     :vartype index_longer: List[int]
+    :ivar codec: codec used to encode indexes
+    :vartype codec: twobits|pow2
    
     """
-    def __init__(self, index, weight, len_sgrna, longer_index = []):
+    def __init__(self, index, weight, len_sgrna, codec, longer_index = []):
         """ Initialize an Hit object
         
         :param index: setCompare index
@@ -68,12 +70,12 @@ class Hit():
         """
         self.index = int(index)
         self.weight = weight
-        self.sequence = self.decode(len_sgrna)
+        self.sequence = self.decode(len_sgrna, codec)
         self.list_occurences = []
         self.on_gene_occurences = []
         self.len_sgrna = len_sgrna
         self.longer_index = longer_index
-        self.to_request_sequences = self.decode_longer() if self.longer_index else [self.sequence]
+        self.to_request_sequences = self.decode_longer(codec) if self.longer_index else [self.sequence]
 
     @property
     def occurences(self): #This dictionnary will be {"organism": {"subsequence" : coords[]}}
@@ -190,15 +192,15 @@ class Hit():
                     merged_couchdoc[genome][fasta_header] += couchdoc[genome][fasta_header]
         return merged_couchdoc
 
-    def decode(self, len_seq):
+    def decode(self, len_seq, codec):
         """Decode setCompare index into nucleotide sequence
         
         :return: sgRNA sequence
         :rtype: str
         """
-        return decoding.decode(self.index, ["A", "T", "C", "G"], len_seq)
+        return decoding.decode(self.index, len_seq, codec)
 
-    def decode_longer(self, len_seq = 23):
+    def decode_longer(self, codec, len_seq = 23):
         """Decode words from self.longer_index
         
         :param len_seq: Word length, defaults to 23
@@ -208,7 +210,7 @@ class Hit():
         """
         if not self.longer_index:
             return []
-        return [decoding.decode(index, ["A", "T", "C", "G"], len_seq) for index in self.longer_index]
+        return [decoding.decode(index, len_seq, codec) for index in self.longer_index]
 
 
     def storeOnGeneOccurences(self, genes):

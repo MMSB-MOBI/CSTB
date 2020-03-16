@@ -1,0 +1,3 @@
+pycouch
+CSTB-core
+requests
