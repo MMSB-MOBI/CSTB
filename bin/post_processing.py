@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(filename = "post_processing.log", level = logging.INFO, format='%(levelname)s\t%(message)s')
+logging.basicConfig(filename = "post_processing.log", level = logging.DEBUG, format='%(levelname)s\t%(message)s')
 import argparse
 from CSTB.crispr_result_manager import CrisprResultManager
 import pycouch.wrapper as couch_wrapper
@@ -82,7 +82,7 @@ def main():
         results.search_occurences(include)
     except:
         error_exit("Error while search sgRNA occurences in couchDB")
-
+    
     if PARAM.blast:
         logging.info("= Parse Blast")
         try: 
@@ -93,23 +93,26 @@ def main():
             empty_exit(f"Some organisms don't have homolog gene.")
         except:
             error_exit("Error while parse blast")
-        
-        try:
-            filtered_results = results.filterOnGeneOccurences()
-        except:
-            error_exit("Error while filter blast results")
+        #try:
+        #    filtered_results = results.filterOnGeneOccurences()
+        #except:
+        #    error_exit("Error while filter blast results")
     
-    else:
-        filtered_results = results
+    #else:
+    #    filtered_results = results
 
-    logging.info(f"{len(filtered_results.hits_collection)}")
+    for i in range(2):
+        logging.debug(i)
+        logging.debug(f"On gene {results.hits_collection[i].on_gene}")
+        logging.debug(f"Not on gene {results.hits_collection[i].not_on_gene}")
 
     logging.info("= Format results")
     try:
         blast = False
         if PARAM.blast:
             blast = True
-        json_results = filtered_results.format_results(blast)
+        json_results = results.format_results(blast)
+        logging.debug(json_results)
     except:
         error_exit("Error while format results")
     

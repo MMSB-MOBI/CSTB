@@ -12,6 +12,9 @@ class Occurence():
         self.genome = genome
         self.fasta_header = fasta_header
         self.coords = coords
+        self.on_gene = []
+        self.not_on_gene = []
+
 
     def keepOnGene(self, genes):
         """Keep coordinates from occurence that are on corresponding homolog gene. Return None if occurence is not on gene.
@@ -22,10 +25,6 @@ class Occurence():
         :return: list of new Occurence with just on gene coordinates if the current occurence is on gene
         :rtype: List[Occurence] or None
         """
-        def isOnGene(coord, gene):
-            start = int(re.search("[+-]\(([0-9]*),", coord).group(1))
-            end = int(re.search(",([0-9]*)", coord).group(1))
-            return gene.start <= start and gene.end >= end
 
         homolog_genes = [ gene for gene in genes if gene.org_uuid == self.genome ]
         if not homolog_genes:
@@ -41,7 +40,14 @@ class Occurence():
                 list_new_occurences.append(Occurence(self.sgRNA, self.genome, self.fasta_header, new_coords))
         return list_new_occurences
 
-
+    def storeOnGene(self, genes):
+        homolog_genes = [ gene for gene in genes if gene.org_uuid == self.genome ]
+        for homolog_gene in homolog_genes: 
+            for coord in self.coords:
+                if isOnGene(coord, homolog_gene):
+                    self.on_gene.append(coord)
+                else:
+                    self.not_on_gene.append(coord)
 
 class Hit():
     """Hit object
@@ -60,7 +66,7 @@ class Hit():
     :vartype codec: twobits|pow2
    
     """
-    def __init__(self, index, weight, len_sgrna, codec, longer_index = []):
+    def __init__(self, index, weight, len_sgrna, longer_index = [], codec = "twobits"):
         """ Initialize an Hit object
         
         :param index: setCompare index
@@ -68,14 +74,17 @@ class Hit():
         :param weight: setCompare weight, correspond to number of sgRNA occurences in all genomes
         :type weight: int
         """
+
         self.index = int(index)
         self.weight = weight
         self.sequence = self.decode(len_sgrna, codec)
         self.list_occurences = []
-        self.on_gene_occurences = []
+        #self.on_gene_occurences = []
         self.len_sgrna = len_sgrna
         self.longer_index = longer_index
         self.to_request_sequences = self.decode_longer(codec) if self.longer_index else [self.sequence]
+        self.on_gene = []
+        self.not_on_gene = []
 
     @property
     def occurences(self): #This dictionnary will be {"organism": {"subsequence" : coords[]}}
@@ -90,14 +99,24 @@ class Hit():
             if occ.genome not in occurences: 
                 occurences[occ.genome] = {}
             
-            occurences[occ.genome][occ.fasta_header] = occ.coords
+            dic = {'coords' : occ.coords}
+            if occ.on_gene or occ.not_on_gene : 
+                dic["on_gene"] = occ.on_gene
+                dic["not_on_gene"] = occ.not_on_gene
+            occurences[occ.genome][occ.fasta_header] = dic
             
         self.formated_occurences = occurences
 
     def _list_ref(self, org_name):
         """Format occurences for an organism 
         """
-        list_ref = [{"ref": ref, "coords": self.occurences[org_name][ref]} for ref in self.occurences[org_name]]
+        list_ref = []
+        for ref in self.occurences[org_name]:
+            dic = {"ref" : ref, "coords" : self.occurences[org_name][ref]["coords"]}
+            if self.on_gene or self.not_on_gene:
+                dic["on_gene"] = self.on_gene
+                dic["not_on_gene"] = self.not_on_gene
+            list_ref.append(dic)
         return list_ref
 
     def list_occ(self, taxon_name):
@@ -116,7 +135,7 @@ class Hit():
         nb_occ = 0
         for genome in self.occurences:
             for subseq in self.occurences[genome]:
-                nb_occ += len(self.occurences[genome][subseq])
+                nb_occ += len(self.occurences[genome][subseq]["coords"])
         return nb_occ
 
     def __str__(self):
@@ -164,13 +183,14 @@ class Hit():
 
         for genome in self.occurences:
             for fasta_header in self.occurences[genome]:
-                current_coords = self.occurences[genome][fasta_header][:] #Save current coords
-                self.occurences[genome][fasta_header] = [] #Reinitialize coords
-                for coord in current_coords:
+                current_coords = copy.deepcopy(self.occurences[genome][fasta_header]) #Save current coords
+                self.occurences[genome][fasta_header] = {k:[] for k in current_coords} #Reinitialize coords
+                for coord_type in current_coords:
                     logging.debug(f"CURRENT {coord}")
-                    new_coord = replace_coord("[+-]\(([0-9]*),", operator.add, coord, offset) if coord[0] == "+" else replace_coord(",([0-9]*)", operator.sub, coord, offset)
-                    logging.debug(f"NEW COORD {new_coord}")
-                    self.occurences[genome][fasta_header].append(new_coord)
+                    for coord in current_coords[coord_type]:
+                        new_coord = replace_coord("[+-]\(([0-9]*),", operator.add, coord, offset) if coord[0] == "+" else replace_coord(",([0-9]*)", operator.sub, coord, offset)
+                        logging.debug(f"NEW COORD {new_coord}")
+                        self.occurences[genome][fasta_header][coord_type].append(new_coord)
 
     def merge_occurences(self, list_couchdoc):
         """Merge a list of couch document into one
@@ -220,9 +240,10 @@ class Hit():
         :type genes: List[BlastHit]
         """
         for occ in self.list_occurences:
-            new_occ = occ.keepOnGene(genes)
-            if new_occ:
-                self.on_gene_occurences += new_occ
+            occ.storeOnGene(genes)
+        
+        self.on_gene = [coord for coord in occ.on_gene for occ in self.list_occurences]
+        self.not_on_gene = [coord for coord in occ.not_on_gene for occ in self.list_occurences]
 
 def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
     """
@@ -256,3 +277,8 @@ def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_lengt
         to_write = hit.write(genomes_in)
         output.write(to_write + '\n')
     output.close()
+
+def isOnGene(coord, gene):
+    start = int(re.search("[+-]\(([0-9]*),", coord).group(1))
+    end = int(re.search(",([0-9]*)", coord).group(1))
+    return gene.start <= start and gene.end >= end

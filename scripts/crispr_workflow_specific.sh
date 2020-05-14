@@ -18,8 +18,8 @@ run_index_sequence() {
     queryFasta="query.fasta"
     printf ">query\n$seq\n" > $queryFasta
     queryIndex="query.index"
-    echo python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $squeryFasta -o $queryIndex > index_query.cmd
-    python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $queryFasta -o $queryIndex 2> index_query.err
+    echo python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $queryFasta -o $queryIndex > index_query.cmd
+    python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $queryFasta -o $queryIndex 1> index_query.out 2> index_query.err
 }
 
 run_setCompare() {
@@ -70,6 +70,9 @@ else
             error_json "Blast error"
         else
             run_post_processing
+            if [[ -s post_processing.err ]]; then
+                error_json "Post processing error"
+            fi
         fi
     fi
    

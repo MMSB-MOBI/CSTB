@@ -43,6 +43,9 @@ if [[ -s setCompare.err ]]; then
     error_json "Error while setCompare"
 else 
     run_post_processing
+    if [[ -s post_processing.err ]]; then
+        error_json "Post processing error"
+    fi
 fi
 
 
