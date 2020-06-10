@@ -58,7 +58,7 @@ class CrisprResultManager():
             error.CouchNotFound: Raise when couch document is not found
         """
         correspondance_genome_taxon = {}
-        logging.debug(f"Try to get taxon name for {list_uuid}")
+        logging.debug(f"Get taxon name for {list_uuid}")
         for g_uuid in list_uuid:
             logging.debug(g_uuid)
             resp = self.wrapper.couchGetDoc(self.genomedb, g_uuid)
@@ -146,7 +146,7 @@ class CrisprResultManager():
         if exclude:
             self.exclude_taxon = self.get_taxon_name(exclude)
 
-    def search_occurences(self, genomes_include, len_slice = 500):
+    def search_occurences(self, genomes_include, len_slice = 50000):
         #type: (List[str], int, int) -> None
         """Search sgRNA occurences in couchDB with motif broker and complete Hit objects.
         
@@ -188,7 +188,7 @@ class CrisprResultManager():
             
            
 
-    def parse_set_compare(self, setCompare_file, word_length, to_keep):
+    def parse_set_compare(self, setCompare_file, word_length, to_keep=None):
         """ Parse results from setCompare. Will call a different parsing function for word with size 20 and for shorter words. Separate functions are required because setCompare results format is not the same with with 20-length words and shorter words. Initialize hits_collection and nb_treated_hits
         
         :param setCompare_file: path to setCompare result file 
@@ -199,13 +199,16 @@ class CrisprResultManager():
         :type to_keep: int
         """
         
-        self.nb_treated_hits = to_keep
+        
         self.hits_collection=[]
         logging.info(f"Parse set compare for word length {word_length}")
         if word_length == 20:
             self._parse_set_compare_20(setCompare_file, to_keep, word_length)
         else:
             self._parse_set_compare_other(setCompare_file, to_keep, word_length)
+        logging.info(f"Nb hits collection {len(self.hits_collection)}")
+
+        self.nb_treated_hits = len(self.hits_collection)
             
     def _parse_set_compare_20(self, setCompare_file, to_keep, word_length):
         """Parse setCompare for word of size 20. 
@@ -228,7 +231,7 @@ class CrisprResultManager():
         index_dic = OrderedDict()
         i = 0
         for rank_occ in text[-1].strip().split(","):
-            if i == to_keep: break
+            if to_keep and i == to_keep: break
             self.hits_collection.append(Hit(rank_occ.split(":")[0],rank_occ.split(":")[1], word_length + 3))
             #index_dic[int(rank_occ.split(":")[0])] = rank_occ.split(":")[1]
             i += 1
@@ -249,7 +252,7 @@ class CrisprResultManager():
             index_dic = OrderedDict()
             i = 0
             for rank_occ in filin:
-                if i == to_keep or rank_occ == "\n": break
+                if (to_keep and i == to_keep) or rank_occ == "\n": break
                 rank_splitted = rank_occ.split(":")
                 
                 index_sgrna = rank_splitted[0]
@@ -375,7 +378,7 @@ class CrisprResultManager():
         if set(included_genomes) != blast_report.organisms:
             raise error.NoHomolog(set(included_genomes).difference(blast_report.organisms))
 
-        self.homolog_genes = blast_report.filterGenes(included_genomes)   
+        self.homolog_genes = blast_report.filterGenes(included_genomes)
         
         for hit in self.hits_collection:
             hit.storeOnGeneOccurences(self.homolog_genes)
@@ -407,6 +410,20 @@ class CrisprResultManager():
             json[org_name][gene.fasta_header].append({"start": gene.start, "end": gene.end})
         
         return json
+
+    def serializeResults(self, file, gene = False):
+        o = open("results.tsv","w")
+        o.write("#SgRNA sequence\tOrganism\tFasta sequence\Coordinates")
+        o.write("\n")
+        for hit in self.hits_collection:
+            for org in hit.occurences:
+                org_name = self.include_taxon[org]
+                for fasta_seq in hit.occurences[org]: 
+                    for coord in hit.occurences[org][fasta_seq]["coords"]:
+                        o.write(f"{hit.sequence}\t{org_name}\t{fasta_seq}\t{coord}")
+                            
+        o.close() 
+
 
         
     

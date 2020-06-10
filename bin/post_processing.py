@@ -1,5 +1,5 @@
 import logging
-logging.basicConfig(filename = "post_processing.log", level = logging.DEBUG, format='%(levelname)s\t%(message)s')
+logging.basicConfig(filename = "post_processing.log", level = logging.INFO, format='%(levelname)s\t%(message)s')
 import argparse
 from CSTB.crispr_result_manager import CrisprResultManager
 import pycouch.wrapper as couch_wrapper
@@ -38,6 +38,7 @@ def args_gestion():
     parser.add_argument("--motif_broker_endpoint", metavar="<url>", help = "Motif broker endpoint", required = True)
     parser.add_argument("--tag", metavar = "<str>", help = "tag for outputs", required = True)
     parser.add_argument("--blast", metavar = "<file>", help = "Blast results (xml format) if specific gene")
+    parser.add_argument("--p_id", metavar="<float>", help="Identify percentage for blast post-processing", default=70, type=float)
     return parser.parse_args()
 
 def main():
@@ -86,7 +87,7 @@ def main():
     if PARAM.blast:
         logging.info("= Parse Blast")
         try: 
-            results.parseBlast(PARAM.blast, 70, include)
+            results.parseBlast(PARAM.blast, PARAM.p_id, include)
         except error.NoBlastHit:
             empty_exit("No blast hit for your gene.")
         except error.NoHomolog :
@@ -99,12 +100,7 @@ def main():
         #    error_exit("Error while filter blast results")
     
     #else:
-    #    filtered_results = results
-
-    for i in range(2):
-        logging.debug(i)
-        logging.debug(f"On gene {results.hits_collection[i].on_gene}")
-        logging.debug(f"Not on gene {results.hits_collection[i].not_on_gene}")
+    #    filtered_results = results    
 
     logging.info("= Format results")
     try:
@@ -116,6 +112,13 @@ def main():
     except:
         error_exit("Error while format results")
     
+    logging.info("= Serialize results")
+    try:
+        results.serializeResults(PARAM.tag + "_results.tsv")
+    except:
+        error_exit("Error while serialize results")
+
+
     print(json.dumps(json_results))
 
 

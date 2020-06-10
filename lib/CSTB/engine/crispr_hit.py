@@ -5,6 +5,7 @@ import logging
 import CSTB.utils.error as error
 import operator
 import re
+import copy
 
 class Occurence():
     def __init__(self, sgRNA, genome, fasta_header, coords):
@@ -12,9 +13,6 @@ class Occurence():
         self.genome = genome
         self.fasta_header = fasta_header
         self.coords = coords
-        self.on_gene = []
-        self.not_on_gene = []
-
 
     def keepOnGene(self, genes):
         """Keep coordinates from occurence that are on corresponding homolog gene. Return None if occurence is not on gene.
@@ -33,7 +31,7 @@ class Occurence():
         list_new_occurences = []
         for homolog_gene in homolog_genes:
             new_coords = []
-            for coord in self.coords:
+            for coord in self.coords: 
                 if isOnGene(coord, homolog_gene):
                     new_coords.append(coord)
             if new_coords:
@@ -42,12 +40,27 @@ class Occurence():
 
     def storeOnGene(self, genes):
         homolog_genes = [ gene for gene in genes if gene.org_uuid == self.genome ]
-        for homolog_gene in homolog_genes: 
-            for coord in self.coords:
-                if isOnGene(coord, homolog_gene):
-                    self.on_gene.append(coord)
-                else:
-                    self.not_on_gene.append(coord)
+        for coord_obj in self.coords:
+            nb_homolog = 0
+            for homolog_gene in homolog_genes:
+                nb_homolog += 1
+                gene_id = f"homolog_gene_{nb_homolog}"
+                if isOnGene(coord_obj["coord"], homolog_gene):
+                    coord_obj["is_on_gene"].append(gene_id)
+
+    def updateCoords(self, bp_to_del:int):
+        def replace_coord(regex, op_func, coord, offset):
+            sgrna_start = int(re.search(regex, coord).group(1))
+            new_coord = coord.replace(str(sgrna_start), str(op_func(sgrna_start, offset)))
+            return new_coord
+
+        coords_save = copy.deepcopy(self.coords)
+        self.coords = []
+        for coord_obj in coords_save: 
+            coord = coord_obj["coord"]
+            new_coord = replace_coord("[+-]\(([0-9]*),", operator.add, coord, bp_to_del) if coord[0] == "+" else replace_coord(",([0-9]*)", operator.sub, coord, bp_to_del)
+            self.coords.append({"coord":new_coord, "is_on_gene":[]})
+
 
 class Hit():
     """Hit object
@@ -74,7 +87,6 @@ class Hit():
         :param weight: setCompare weight, correspond to number of sgRNA occurences in all genomes
         :type weight: int
         """
-
         self.index = int(index)
         self.weight = weight
         self.sequence = self.decode(len_sgrna, codec)
@@ -100,9 +112,6 @@ class Hit():
                 occurences[occ.genome] = {}
             
             dic = {'coords' : occ.coords}
-            if occ.on_gene or occ.not_on_gene : 
-                dic["on_gene"] = occ.on_gene
-                dic["not_on_gene"] = occ.not_on_gene
             occurences[occ.genome][occ.fasta_header] = dic
             
         self.formated_occurences = occurences
@@ -113,9 +122,6 @@ class Hit():
         list_ref = []
         for ref in self.occurences[org_name]:
             dic = {"ref" : ref, "coords" : self.occurences[org_name][ref]["coords"]}
-            if self.on_gene or self.not_on_gene:
-                dic["on_gene"] = self.on_gene
-                dic["not_on_gene"] = self.not_on_gene
             list_ref.append(dic)
         return list_ref
 
@@ -164,33 +170,21 @@ class Hit():
         db_genomes = set(couch_doc.keys())
         if not set(genomes_in).issubset(db_genomes):
             raise error.ConsistencyError(f"Consistency error. Genomes included {genomes_in} are not in couch database for {self.sequence}")
-            
-        for genome in genomes_in:
+
+        for genome in genomes_in:  
             for fasta_header in couch_doc[genome]:
-                self.list_occurences.append(Occurence(self, genome, fasta_header, couch_doc[genome][fasta_header]))
+                formated_coords = []
+                for coord in couch_doc[genome][fasta_header]:
+                    formated_coords.append({"coord":coord, "is_on_gene":[]})
+                self.list_occurences.append(Occurence(self, genome, fasta_header, formated_coords))
 
         if self.longer_index:
             self._update_coords()
 
     def _update_coords(self):
-        def replace_coord(regex, op_func, coord, offset):
-            sgrna_start = int(re.search(regex, coord).group(1))
-            logging.debug(op_func(sgrna_start, offset))
-            new_coord = coord.replace(str(sgrna_start), str(op_func(sgrna_start, offset)))
-            return new_coord
-        
         offset = 23 - self.len_sgrna
-
-        for genome in self.occurences:
-            for fasta_header in self.occurences[genome]:
-                current_coords = copy.deepcopy(self.occurences[genome][fasta_header]) #Save current coords
-                self.occurences[genome][fasta_header] = {k:[] for k in current_coords} #Reinitialize coords
-                for coord_type in current_coords:
-                    logging.debug(f"CURRENT {coord}")
-                    for coord in current_coords[coord_type]:
-                        new_coord = replace_coord("[+-]\(([0-9]*),", operator.add, coord, offset) if coord[0] == "+" else replace_coord(",([0-9]*)", operator.sub, coord, offset)
-                        logging.debug(f"NEW COORD {new_coord}")
-                        self.occurences[genome][fasta_header][coord_type].append(new_coord)
+        for occ in self.list_occurences:
+            occ.updateCoords(offset)
 
     def merge_occurences(self, list_couchdoc):
         """Merge a list of couch document into one
@@ -241,9 +235,6 @@ class Hit():
         """
         for occ in self.list_occurences:
             occ.storeOnGene(genes)
-        
-        self.on_gene = [coord for coord in occ.on_gene for occ in self.list_occurences]
-        self.not_on_gene = [coord for coord in occ.not_on_gene for occ in self.list_occurences]
 
 def write_to_file(genomes_in, genomes_not_in, dic_hits, pam, non_pam_motif_length, workdir, nb_top, hit_obj, list_ordered):
     """

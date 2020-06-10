@@ -87,6 +87,7 @@ class BlastReport(object):
         :rtype: List[BlastHit]
         """
         filtered_genes = [gene for gene in self.homolog_genes if gene.org_uuid in orgs]
+        filtered_genes = sorted(filtered_genes, key=lambda gene:gene.start) #genes in apparition on genome order.
         if fasta_header:
             return [gene for gene in filtered_genes if gene.fasta_header == fasta_header]
         
