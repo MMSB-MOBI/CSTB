@@ -60,7 +60,7 @@ class Hit():
     :vartype codec: twobits|pow2
    
     """
-    def __init__(self, index, weight, len_sgrna, codec, longer_index = []):
+    def __init__(self, index, weight, len_sgrna, codec = "twobits", longer_index = []):
         """ Initialize an Hit object
         
         :param index: setCompare index

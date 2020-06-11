@@ -200,7 +200,6 @@ class CrisprResultManager():
         logging.debug("parse set compare other")
         with open(setCompare_file, "r") as filin:
             for line in filin:
-                logging.debug(line)
                 regex_nb_hits = re.search("^# ([0-9]+)", line)
                 if regex_nb_hits:
                     self.nb_total_hits = int(regex_nb_hits.group(1))
@@ -218,7 +217,7 @@ class CrisprResultManager():
                 index_sgrna = rank_splitted[0]
                 weight = rank_splitted[1].split("[")[0]
                 index_longer_sgrna = [int(index.replace("'","")) for index in rank_occ.split("[")[1].rstrip("]\n").split(",")]
-                self.hits_collection.append(Hit(index_sgrna, weight, word_length + 3, index_longer_sgrna))
+                self.hits_collection.append(Hit(index_sgrna, weight, word_length + 3, longer_index = index_longer_sgrna))
                 i += 1
             logging.debug(f"First hit\n{self.hits_collection[0]}")
 
