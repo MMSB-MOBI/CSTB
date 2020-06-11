@@ -63,4 +63,4 @@ Same as All Genomes but we also kept the information of presence or absence of s
 * Back-end code (here) 
 * [Server and interrogation web page](https://github.com/MMSB-MOBI/CSTB_server)
 * [Result web page](https://github.com/MMSB-MOBI/result_page_crispr)
-* [Database manager)(https://github.com/MMSB-MOBI/CSTB_database_manager)
+* [Database manager](https://github.com/MMSB-MOBI/CSTB_database_manager)
