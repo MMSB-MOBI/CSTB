@@ -412,15 +412,14 @@ class CrisprResultManager():
         return json
 
     def serializeResults(self, file, gene = False):
-        o = open("results.tsv","w")
-        o.write("#SgRNA sequence\tOrganism\tFasta sequence\Coordinates")
-        o.write("\n")
+        o = open(file,"w")
+        o.write("#SgRNA sequence\tOrganism\tFasta sequence reference\tCoordinates\n")
         for hit in self.hits_collection:
             for org in hit.occurences:
                 org_name = self.include_taxon[org]
                 for fasta_seq in hit.occurences[org]: 
                     for coord in hit.occurences[org][fasta_seq]["coords"]:
-                        o.write(f"{hit.sequence}\t{org_name}\t{fasta_seq}\t{coord}")
+                        o.write(f"{hit.sequence}\t{org_name}\t{fasta_seq}\t{coord['coord']}\n")
                             
         o.close() 
 
