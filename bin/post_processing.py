@@ -114,7 +114,8 @@ def main():
     
     logging.info("= Serialize results")
     try:
-        results.serializeResults(PARAM.tag + "_results.tsv")
+        gene = True if PARAM.blast else False
+        results.serializeResults(PARAM.tag + "_results.tsv", gene)
     except:
         error_exit("Error while serialize results")
 

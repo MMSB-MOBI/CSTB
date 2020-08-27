@@ -413,14 +413,22 @@ class CrisprResultManager():
 
     def serializeResults(self, file, gene = False):
         o = open(file,"w")
-        o.write("#SgRNA sequence\tOrganism\tFasta sequence reference\tCoordinates\n")
+        o.write("#SgRNA sequence\tOrganism\tFasta sequence reference\tCoordinates")
+        if gene:
+            o.write("\tOn at least 1 homologous gene")
+        o.write("\n")
         for hit in self.hits_collection:
             for org in hit.occurences:
                 org_name = self.include_taxon[org]
                 for fasta_seq in hit.occurences[org]: 
                     for coord in hit.occurences[org][fasta_seq]["coords"]:
-                        o.write(f"{hit.sequence}\t{org_name}\t{fasta_seq}\t{coord['coord']}\n")
-                            
+                        o.write(f"{hit.sequence}\t{org_name}\t{fasta_seq}\t{coord['coord']}")
+                        if gene :
+                            if coord["is_on_gene"]:
+                                o.write("\tTrue")
+                            else:
+                                o.write("\tFalse")
+                        o.write("\n")
         o.close() 
 
 
