@@ -36,16 +36,23 @@ error_json () {
     echo "{\"error\": \"$1\"}"
 }
 
+empty_json() {
+    msg=$1
+    echo "{\"emptySearch\": \"$1\"}"
+}
+
 #Create sFlag when motif length < 20  
 
 run_setCompare
 if [[ -s setCompare.err ]]; then
-    error_json "Error while setCompare"
+   msg=$(cat setCompare.err)
+	if [[ $msg == "intersect size is zero"* ]]; then
+		empty_json "No hits found"
+    else
+        error_json "Error while setCompare - job $loc. Contact admin with this job number."
+	fi
 else 
     run_post_processing
-    if [[ -s post_processing.err ]]; then
-        error_json "Post processing error"
-    fi
 fi
 
 
