@@ -25,7 +25,7 @@ run_setCompare() {
 
 run_post_processing(){
     if [[ -s $fileSet ]]; then
-        loc=$(pwd | perl -ne '@tmp = split(/\//, $_); print "$tmp[$#tmp - 1]/$tmp[$#tmp]";');
+        loc=$(pwd | perl -ne '@tmp = split(/\//, $_); print "$tmp[$#tmp]";');
         echo python -u $CRISPR_TOOLS_SCRIPT_PATH/post_processing.py --include "$gi" --exclude "$gni" --couch_endpoint "$COUCH_ENDPOINT" --taxon_db "$NAME_TAXON" --genome_db "$NAME_GENOME" --set_compare set_index.txt --length "$sl" --motif_broker_endpoint "$MOTIF_BROKER_ENDPOINT" --tag "$loc" > post_processing.cmd
         python -u $CRISPR_TOOLS_SCRIPT_PATH/post_processing.py --include "$gi" --exclude "$gni" --couch_endpoint "$COUCH_ENDPOINT" --taxon_db "$NAME_TAXON" --genome_db "$NAME_GENOME" --set_compare set_index.txt --length "$sl" --motif_broker_endpoint "$MOTIF_BROKER_ENDPOINT" --tag "$loc" 2>> post_processing.err
     fi
@@ -36,11 +36,21 @@ error_json () {
     echo "{\"error\": \"$1\"}"
 }
 
+empty_json() {
+    msg=$1
+    echo "{\"emptySearch\": \"$1\"}"
+}
+
 #Create sFlag when motif length < 20  
 
 run_setCompare
 if [[ -s setCompare.err ]]; then
-    error_json "Error while setCompare"
+   msg=$(cat setCompare.err)
+	if [[ $msg == "intersect size is zero"* ]]; then
+		empty_json "No hits found"
+    else
+        error_json "Error while setCompare - job $loc. Contact admin with this job number."
+	fi
 else 
     run_post_processing
 fi

@@ -38,6 +38,7 @@ def args_gestion():
     parser.add_argument("--motif_broker_endpoint", metavar="<url>", help = "Motif broker endpoint", required = True)
     parser.add_argument("--tag", metavar = "<str>", help = "tag for outputs", required = True)
     parser.add_argument("--blast", metavar = "<file>", help = "Blast results (xml format) if specific gene")
+    parser.add_argument("--p_id", metavar="<float>", help="Identify percentage for blast post-processing", default=70, type=float)
     return parser.parse_args()
 
 def main():
@@ -82,37 +83,43 @@ def main():
         results.search_occurences(include)
     except:
         error_exit("Error while search sgRNA occurences in couchDB")
-
+    
     if PARAM.blast:
         logging.info("= Parse Blast")
         try: 
-            results.parseBlast(PARAM.blast, 70, include)
+            results.parseBlast(PARAM.blast, PARAM.p_id, include)
         except error.NoBlastHit:
             empty_exit("No blast hit for your gene.")
         except error.NoHomolog :
             empty_exit(f"Some organisms don't have homolog gene.")
         except:
             error_exit("Error while parse blast")
-        
-        try:
-            filtered_results = results.filterOnGeneOccurences()
-        except:
-            error_exit("Error while filter blast results")
+        #try:
+        #    filtered_results = results.filterOnGeneOccurences()
+        #except:
+        #    error_exit("Error while filter blast results")
     
-    else:
-        filtered_results = results
-
-    logging.info(f"{len(filtered_results.hits_collection)}")
+    #else:
+    #    filtered_results = results    
 
     logging.info("= Format results")
     try:
         blast = False
         if PARAM.blast:
             blast = True
-        json_results = filtered_results.format_results(blast)
+        json_results = results.format_results(blast)
+        logging.debug(json_results)
     except:
         error_exit("Error while format results")
     
+    logging.info("= Serialize results")
+    try:
+        gene = True if PARAM.blast else False
+        results.serializeResults(PARAM.tag + "_results.tsv", gene)
+    except:
+        error_exit("Error while serialize results")
+
+
     print(json.dumps(json_results))
 
 

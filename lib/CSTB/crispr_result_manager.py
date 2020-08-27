@@ -58,17 +58,17 @@ class CrisprResultManager():
             error.CouchNotFound: Raise when couch document is not found
         """
         correspondance_genome_taxon = {}
-        logging.debug(f"Try to get taxon name for {list_uuid}")
+        logging.debug(f"Get taxon name for {list_uuid}")
         for g_uuid in list_uuid:
             logging.debug(g_uuid)
             resp = self.wrapper.couchGetDoc(self.genomedb, g_uuid)
             if not resp:
-                raise error.CouchNotFound(f"{self.wrapper.endpoint}/{self.genomedb}/{g_uuid} not found")
+                raise error.CouchNotFound(f"{self.wrapper.end_point}/{self.genomedb}/{g_uuid} not found")
             taxon_uuid = resp["taxon"]
 
             resp = self.wrapper.couchGetDoc(self.taxondb, taxon_uuid)
             if not resp:
-                raise error.CouchNotFound(f"{self.wrapper.endpoint}/{self.taxondb}/{taxon_uuid} not found")
+                raise error.CouchNotFound(f"{self.wrapper.end_point}/{self.taxondb}/{taxon_uuid} not found")
             correspondance_genome_taxon[g_uuid] = resp["name"]
 
         return correspondance_genome_taxon
@@ -90,10 +90,47 @@ class CrisprResultManager():
         for g_uuid in list_uuid:
             resp = self.wrapper.couchGetDoc(self.genomedb, g_uuid)
             if not resp:
-                raise error.CouchNotFound(f"{self.wrapper.endpoint}/{self.genomedb}/{g_uuid} not found")
+                raise error.CouchNotFound(f"{self.wrapper.end_point}/{self.genomedb}/{g_uuid} not found")
             size = resp["size"]
             sizes[g_uuid] = size
         return sizes
+
+    def get_fasta_metadata(self, list_uuid):
+        """Get metadata for fasta subsequences (sizes and headers) of genomes given in list_uuid
+
+        Args:
+            list_uuid (str[]): [description]
+
+        Raises:
+            error.CouchNotFound: Raise if couch document doesn't exist
+            error.FastaMetadataError: Raise if something is wrong with given list of genomes or couch document.
+
+        Returns:
+            Dict: { genome_uuid : { fasta_subsequence_ref : { "size" : size_value, "header" : header_value } } }. Dictionnary with header and size associated with each fasta subsequence of each genome from given list.
+        """
+        metadata = {}
+        for g_uuid in list_uuid:
+            resp = self.wrapper.couchGetDoc(self.genomedb, g_uuid)
+            if not resp:
+                raise error.CouchNotFound(f"{self.wrapper.end_point}/{self.genomedb}/{g_uuid} not found")
+            
+            if not resp.get("size"):
+                raise error.FastaMetadataError(f"{self.wrapper.end_point}/{self.genomedb}/{g_uuid} has not 'size' attribute")
+            
+            if not resp.get("headers"):
+                raise error.FastaMetadataError(f"{self.wrapper.end_point}/{self.genomedb}/{g_uuid} has not 'headers' attribute")
+            if g_uuid in metadata:
+                raise error.FastaMetadataError(f"{g_uuid} appears several times in list_uuid")
+            metadata[g_uuid] = {}
+            for fasta_seq in resp["size"]:
+                if fasta_seq in metadata[g_uuid]:
+                    raise error.FastaMetadataError(f"{fasta_seq} is duplicate in {self.wrapper.end_point}/{self.genomedb}/{g_uuid}")
+                metadata[g_uuid][fasta_seq] = {}
+                metadata[g_uuid][fasta_seq]["size"] = resp["size"][fasta_seq]
+                metadata[g_uuid][fasta_seq]["header"] = resp["headers"][fasta_seq]
+            
+        return metadata
+        
             
     def set_taxon_names(self, include, exclude):
         #type: (List[str], List[str]) -> None
@@ -109,7 +146,7 @@ class CrisprResultManager():
         if exclude:
             self.exclude_taxon = self.get_taxon_name(exclude)
 
-    def search_occurences(self, genomes_include, len_slice = 500):
+    def search_occurences(self, genomes_include, len_slice = 50000):
         #type: (List[str], int, int) -> None
         """Search sgRNA occurences in couchDB with motif broker and complete Hit objects.
         
@@ -151,7 +188,7 @@ class CrisprResultManager():
             
            
 
-    def parse_set_compare(self, setCompare_file, word_length, to_keep):
+    def parse_set_compare(self, setCompare_file, word_length, to_keep=None):
         """ Parse results from setCompare. Will call a different parsing function for word with size 20 and for shorter words. Separate functions are required because setCompare results format is not the same with with 20-length words and shorter words. Initialize hits_collection and nb_treated_hits
         
         :param setCompare_file: path to setCompare result file 
@@ -162,13 +199,16 @@ class CrisprResultManager():
         :type to_keep: int
         """
         
-        self.nb_treated_hits = to_keep
+        
         self.hits_collection=[]
         logging.info(f"Parse set compare for word length {word_length}")
         if word_length == 20:
             self._parse_set_compare_20(setCompare_file, to_keep, word_length)
         else:
             self._parse_set_compare_other(setCompare_file, to_keep, word_length)
+        logging.info(f"Nb hits collection {len(self.hits_collection)}")
+
+        self.nb_treated_hits = len(self.hits_collection)
             
     def _parse_set_compare_20(self, setCompare_file, to_keep, word_length):
         """Parse setCompare for word of size 20. 
@@ -191,7 +231,7 @@ class CrisprResultManager():
         index_dic = OrderedDict()
         i = 0
         for rank_occ in text[-1].strip().split(","):
-            if i == to_keep: break
+            if to_keep and i == to_keep: break
             self.hits_collection.append(Hit(rank_occ.split(":")[0],rank_occ.split(":")[1], word_length + 3))
             #index_dic[int(rank_occ.split(":")[0])] = rank_occ.split(":")[1]
             i += 1
@@ -211,7 +251,7 @@ class CrisprResultManager():
             index_dic = OrderedDict()
             i = 0
             for rank_occ in filin:
-                if i == to_keep or rank_occ == "\n": break
+                if (to_keep and i == to_keep) or rank_occ == "\n": break
                 rank_splitted = rank_occ.split(":")
                 
                 index_sgrna = rank_splitted[0]
@@ -231,10 +271,8 @@ class CrisprResultManager():
         results = []
         sorted_hits = sorted(self.hits_collection, key=lambda hit: hit.number_occurences)
         #logging.debug([hit.number_occurences for hit in self.hits_collection])
-        logging.debug(max([hit.number_occurences for hit in self.hits_collection]))
         for hit in sorted_hits:
             results.append({"sequence" : hit.sequence, "occurences" : hit.list_occ(self.include_taxon)})
-        logging.debug(results[-1])
         return results
 
     def generate_json_data_card(self):
@@ -274,6 +312,26 @@ class CrisprResultManager():
             json_size[self.include_taxon[g_uuid]] = sizes[g_uuid]  
         
         return json_size
+
+    def generate_fasta_metadata(self):
+        """Format json for fasta metadata
+
+        Returns:
+            Metadata[]: List of Metadata. Metadata is dictionnary with organism_name, fasta reference, size and header. { "org" : organism_name, "fasta_ref" : fasta_reference, "size" : size value, "header" : header value }
+        """
+        json = []
+        metadata = self.get_fasta_metadata(list(self.include_taxon.keys()))
+        for g_uuid in metadata:
+            g_name = self.include_taxon[g_uuid]
+            for fasta_ref in metadata[g_uuid]:
+                data = {"org" : g_name, \
+                    "fasta_ref" : fasta_ref, \
+                    "size" : metadata[g_uuid][fasta_ref]["size"], \
+                    "header" : metadata[g_uuid][fasta_ref]["header"]}
+                json.append(data)
+        return json
+
+
         
     def format_results(self, blast = False):
         """Create the final json for client
@@ -289,7 +347,9 @@ class CrisprResultManager():
         final_json["data"] = self.generate_json_data()
         final_json["data_card"] = self.generate_json_data_card()
         final_json["tag"] = self.tag
-        final_json["size"] = self.generate_json_size()
+        final_json["size"] = self.generate_json_size() #To delete
+        final_json["fasta_metadata"] = self.generate_fasta_metadata()
+
         if blast:
             final_json["gene"] = self.generateGeneData()
 
@@ -317,7 +377,7 @@ class CrisprResultManager():
         if set(included_genomes) != blast_report.organisms:
             raise error.NoHomolog(set(included_genomes).difference(blast_report.organisms))
 
-        self.homolog_genes = blast_report.filterGenes(included_genomes)   
+        self.homolog_genes = blast_report.filterGenes(included_genomes)
         
         for hit in self.hits_collection:
             hit.storeOnGeneOccurences(self.homolog_genes)
@@ -349,6 +409,27 @@ class CrisprResultManager():
             json[org_name][gene.fasta_header].append({"start": gene.start, "end": gene.end})
         
         return json
+
+    def serializeResults(self, file, gene = False):
+        o = open(file,"w")
+        o.write("#SgRNA sequence\tOrganism\tFasta sequence reference\tCoordinates")
+        if gene:
+            o.write("\tOn at least 1 homologous gene")
+        o.write("\n")
+        for hit in self.hits_collection:
+            for org in hit.occurences:
+                org_name = self.include_taxon[org]
+                for fasta_seq in hit.occurences[org]: 
+                    for coord in hit.occurences[org][fasta_seq]["coords"]:
+                        o.write(f"{hit.sequence}\t{org_name}\t{fasta_seq}\t{coord['coord']}")
+                        if gene :
+                            if coord["is_on_gene"]:
+                                o.write("\tTrue")
+                            else:
+                                o.write("\tFalse")
+                        o.write("\n")
+        o.close() 
+
 
         
     

@@ -16,6 +16,16 @@ class NoHomolog(Exception):
 class NoBlastHit(Exception):
     pass
 
+class FastaMetadataError(Exception):
+    """Raise if fasta metadata has wrong format
+    """
+    pass
+
+class ArgumentError(Exception):
+    """Raise if error in command line argument
+    """
+    pass
+
 def empty_exit(message):
     """Print json with emptySearch key and exit
     

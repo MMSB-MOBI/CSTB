@@ -18,8 +18,8 @@ run_index_sequence() {
     queryFasta="query.fasta"
     printf ">query\n$seq\n" > $queryFasta
     queryIndex="query.index"
-    echo python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $squeryFasta -o $queryIndex > index_query.cmd
-    python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $queryFasta -o $queryIndex 2> index_query.err
+    echo python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $queryFasta -o $queryIndex > index_query.cmd
+    python -u $CRISPR_TOOLS_SCRIPT_PATH/index_sequence.py -f $queryFasta -o $queryIndex 1> index_query.out 2> index_query.err
 }
 
 run_setCompare() {
@@ -45,9 +45,9 @@ run_blast() {
 
 run_post_processing(){
     if [[ -s $fileSet ]]; then
-        loc=$(pwd | perl -ne '@tmp = split(/\//, $_); print "$tmp[$#tmp - 1]/$tmp[$#tmp]";');
-        echo python -u $CRISPR_TOOLS_SCRIPT_PATH/post_processing.py --include "$gi" --exclude "$gni" --couch_endpoint "$COUCH_ENDPOINT" --taxon_db "$NAME_TAXON" --genome_db "$NAME_GENOME" --set_compare set_index.txt --length "$sl" --motif_broker_endpoint "$MOTIF_BROKER_ENDPOINT" --tag "$loc" --blast $blastOutput > post_processing.cmd
-        python -u $CRISPR_TOOLS_SCRIPT_PATH/post_processing.py --include "$gi" --exclude "$gni" --couch_endpoint "$COUCH_ENDPOINT" --taxon_db "$NAME_TAXON" --genome_db "$NAME_GENOME" --set_compare set_index.txt --length "$sl" --motif_broker_endpoint "$MOTIF_BROKER_ENDPOINT" --tag "$loc" --blast $blastOutput 2> post_processing.err
+        loc=$(pwd | perl -ne '@tmp = split(/\//, $_); print "$tmp[$#tmp]";');
+        echo python -u $CRISPR_TOOLS_SCRIPT_PATH/post_processing.py --include "$gi" --exclude "$gni" --couch_endpoint "$COUCH_ENDPOINT" --taxon_db "$NAME_TAXON" --genome_db "$NAME_GENOME" --set_compare set_index.txt --length "$sl" --motif_broker_endpoint "$MOTIF_BROKER_ENDPOINT" --tag "$loc" --blast $blastOutput --p_id $pid > post_processing.cmd
+        python -u $CRISPR_TOOLS_SCRIPT_PATH/post_processing.py --include "$gi" --exclude "$gni" --couch_endpoint "$COUCH_ENDPOINT" --taxon_db "$NAME_TAXON" --genome_db "$NAME_GENOME" --set_compare set_index.txt --length "$sl" --motif_broker_endpoint "$MOTIF_BROKER_ENDPOINT" --tag "$loc" --blast $blastOutput --p_id $pid 2> post_processing.err
     fi
 }
 
@@ -56,18 +56,29 @@ error_json () {
     echo "{\"error\": \"$1\"}"
 }
 
+empty_json() {
+    msg=$1
+    echo "{\"emptySearch\": \"$1\"}"
+}
+
+
 #Search and index sgRNA in gene
 run_index_sequence
 if [[ -s index_query.err ]]; then
-    error_json "Error while index gene"
+    error_json "Error while index gene - job $loc. Contact admin with this job number."
 else
     run_setCompare
     if [[ -s setCompare.err ]]; then
-        error_json "Error while setCompare"
+        msg=$(cat setCompare.err)
+        if [[ $msg == "intersect size is zero"* ]]; then
+            empty_json "No hits found"
+        else
+            error_json "Error while setCompare - job $loc. Contact admin with this job number."
+        fi
     else
         run_blast
         if [[ -s blast.err ]]; then
-            error_json "Blast error"
+            error_json "Blast error - job $loc. Contact admin with this job number."
         else
             run_post_processing
         fi
