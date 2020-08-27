@@ -79,6 +79,7 @@ class Hit():
     :vartype codec: twobits|pow2
    
     """
+    
     def __init__(self, index, weight, len_sgrna, longer_index = [], codec = "twobits"):
         """ Initialize an Hit object
         
