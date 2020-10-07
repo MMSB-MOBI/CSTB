@@ -222,7 +222,6 @@ class CrisprResultManager():
         logging.debug("parse set compare other")
         with open(setCompare_file, "r") as filin:
             for line in filin:
-                logging.debug(line)
                 regex_nb_hits = re.search("^# ([0-9]+)", line)
                 if regex_nb_hits:
                     self.nb_total_hits = int(regex_nb_hits.group(1))
