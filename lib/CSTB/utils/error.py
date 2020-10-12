@@ -36,13 +36,13 @@ def empty_exit(message):
     print(json.dumps(json_dic))
     exit()
 
-def error_exit(message): 
+def error_exit(message, job_number): 
     """Print json with error key, traceback error and exit
     
     :param message: Message to display
     :type message: str
     """
-    json_dic = {"error" : message}
+    json_dic = {"error" : message + f"\n Contact support with the job number {job_number} : cecile.hilpert@ibcp.fr"}
     print(json.dumps(json_dic)) #Need to be json dumped
     traceback.print_exc()
     exit()

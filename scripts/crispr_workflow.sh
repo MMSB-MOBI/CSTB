@@ -41,19 +41,20 @@ empty_json() {
     echo "{\"emptySearch\": \"$1\"}"
 }
 
-#Create sFlag when motif length < 20  
-
+SECONDS=0
 run_setCompare
 if [[ -s setCompare.err ]]; then
    msg=$(cat setCompare.err)
 	if [[ $msg == "intersect size is zero"* ]]; then
 		empty_json "No hits found"
     else
-        error_json "Error while setCompare - job $loc. Contact admin with this job number."
+        error_json "Error while setCompare - job $loc. Contact support with this job number : cecile.hilpert@ibcp.fr"
 	fi
 else 
     run_post_processing
 fi
+
+echo $SECONDS > running_time.txt
 
 
 

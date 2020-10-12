@@ -43,7 +43,6 @@ def args_gestion():
 
 def main():
     logging.info("== post_processing.py")
-    global PARAM
     PARAM = args_gestion()
 
     #Get genomes uuid from args
@@ -59,7 +58,7 @@ def main():
     logging.info("= Initialize pycouch wrapper")
     wrapper = couch_wrapper.Wrapper(PARAM.couch_endpoint)
     if not wrapper.couchPing():
-        error_exit("Can't ping couch database")
+        error_exit("Can't ping couch database", PARAM.tag)
 
     results = CrisprResultManager(wrapper, PARAM.taxon_db, PARAM.genome_db, PARAM.motif_broker_endpoint, PARAM.tag)
 
@@ -67,13 +66,13 @@ def main():
     try:
         results.set_taxon_names(include, exclude)
     except:
-        error_exit("Error while set taxon names")
+        error_exit("Error while set taxon names", PARAM.tag)
 
     logging.info("= Parse setCompare")
     try:
         results.parse_set_compare(PARAM.set_compare, PARAM.length, 1000)
     except:
-        error_exit("Error while parse setCompare")
+        error_exit("Error while parse setCompare", PARAM.tag)
 
     if not results.hits_collection:
         empty_exit("No hits")
@@ -82,7 +81,7 @@ def main():
     try:
         results.search_occurences(include)
     except:
-        error_exit("Error while search sgRNA occurences in couchDB")
+        error_exit("Error while search sgRNA occurences in couchDB", PARAM.tag)
     
     if PARAM.blast:
         logging.info("= Parse Blast")
@@ -93,7 +92,7 @@ def main():
         except error.NoHomolog :
             empty_exit(f"Some organisms don't have homolog gene.")
         except:
-            error_exit("Error while parse blast")
+            error_exit("Error while parse blast", PARAM.tag)
         #try:
         #    filtered_results = results.filterOnGeneOccurences()
         #except:
@@ -110,14 +109,14 @@ def main():
         json_results = results.format_results(blast)
         logging.debug(json_results)
     except:
-        error_exit("Error while format results")
+        error_exit("Error while format results", PARAM.tag)
     
     logging.info("= Serialize results")
     try:
         gene = True if PARAM.blast else False
         results.serializeResults(PARAM.tag + "_results.tsv", gene)
     except:
-        error_exit("Error while serialize results")
+        error_exit("Error while serialize results", PARAM.tag)
 
 
     print(json.dumps(json_results))

@@ -65,7 +65,7 @@ empty_json() {
 #Search and index sgRNA in gene
 run_index_sequence
 if [[ -s index_query.err ]]; then
-    error_json "Error while index gene - job $loc. Contact admin with this job number."
+    error_json "Error while index gene - job $loc. Contact support with this job number : cecile.hilpert@ibcp.fr"
 else
     run_setCompare
     if [[ -s setCompare.err ]]; then
@@ -73,12 +73,12 @@ else
         if [[ $msg == "intersect size is zero"* ]]; then
             empty_json "No hits found"
         else
-            error_json "Error while setCompare - job $loc. Contact admin with this job number."
+            error_json "Error while setCompare - job $loc. Contact support with this job number : cecile.hilpert@ibcp.fr"
         fi
     else
         run_blast
         if [[ -s blast.err ]]; then
-            error_json "Blast error - job $loc. Contact admin with this job number."
+            error_json "Blast error - job $loc. Contact support with this job number : cecile.hilpert@ibcp.fr"
         else
             run_post_processing
         fi
