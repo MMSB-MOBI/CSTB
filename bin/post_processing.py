@@ -75,7 +75,7 @@ def main():
         error_exit("Error while parse setCompare", PARAM.tag)
 
     if not results.hits_collection:
-        empty_exit("No hits")
+        empty_exit("No hits", PARAM.tag)
     
     logging.info("= Search sgrna occurences in couchDB")
     try:
@@ -88,9 +88,9 @@ def main():
         try: 
             results.parseBlast(PARAM.blast, PARAM.p_id, include)
         except error.NoBlastHit:
-            empty_exit("No blast hit for your gene.")
+            empty_exit("No blast hit for your gene.", PARAM.tag)
         except error.NoHomolog :
-            empty_exit(f"Some organisms don't have homolog gene.")
+            empty_exit(f"Some organisms don't have homolog gene.", PARAM.tag)
         except:
             error_exit("Error while parse blast", PARAM.tag)
         #try:

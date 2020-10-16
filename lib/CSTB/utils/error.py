@@ -26,13 +26,13 @@ class ArgumentError(Exception):
     """
     pass
 
-def empty_exit(message):
+def empty_exit(message, job_number):
     """Print json with emptySearch key and exit
     
     :param message: Message to display
     :type message: str
     """
-    json_dic = {"emptySearch" : message}
+    json_dic = {"emptySearch" : message, "tag":job_number}
     print(json.dumps(json_dic))
     exit()
 
@@ -42,7 +42,7 @@ def error_exit(message, job_number):
     :param message: Message to display
     :type message: str
     """
-    json_dic = {"error" : message + f"\n Contact support with the job number {job_number} : cecile.hilpert@ibcp.fr"}
+    json_dic = {"error" : message + f"\n Contact support with the job number {job_number} : cecile.hilpert@ibcp.fr", "tag" : job_number}
     print(json.dumps(json_dic)) #Need to be json dumped
     traceback.print_exc()
     exit()
