@@ -42,7 +42,7 @@ def error_exit(message, job_number):
     :param message: Message to display
     :type message: str
     """
-    json_dic = {"error" : message + f"\n Contact support with the job number {job_number} : cecile.hilpert@ibcp.fr", "tag" : job_number}
+    json_dic = {"error" : message + f"\n Contact support with the job number {job_number} : cstb-support@ibcp.fr", "tag" : job_number}
     print(json.dumps(json_dic)) #Need to be json dumped
     traceback.print_exc()
     exit()

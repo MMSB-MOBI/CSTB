@@ -48,7 +48,7 @@ if [[ -s setCompare.err ]]; then
 	if [[ $msg == "intersect size is zero"* ]]; then
 		empty_json "No hits found"
     else
-        error_json "Error while setCompare - job $loc. Contact support with this job number : cecile.hilpert@ibcp.fr"
+        error_json "Error while setCompare - job $loc. Contact support : cstb-support@ibcp.fr"
 	fi
 else 
     run_post_processing
