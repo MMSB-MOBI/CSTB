@@ -42,13 +42,15 @@ empty_json() {
 }
 
 SECONDS=0
+#To simulate error
+#error_json "Test error - job $loc";
 run_setCompare
 if [[ -s setCompare.err ]]; then
    msg=$(cat setCompare.err)
 	if [[ $msg == "intersect size is zero"* ]]; then
 		empty_json "No hits found"
     else
-        error_json "Error while setCompare - job $loc. Contact support : cstb-support@ibcp.fr"
+        error_json "Error while setCompare - job $loc. An email has automatically been send to support."
 	fi
 else 
     run_post_processing
