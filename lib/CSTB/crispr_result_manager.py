@@ -8,6 +8,7 @@ import requests
 import time
 from typing import List, Dict
 from CSTB.engine.crispr_blast import BlastReport
+import motif_broker_request.request as mb_request
 
 
 SESSION = requests.Session()
@@ -46,6 +47,7 @@ class CrisprResultManager():
         self.include_taxon = include_taxon
         self.exclude_taxon = exclude_taxon
         self.homolog_genes = homolog_genes
+        mb_request.configure(self.motif_broker_endpoint)
 
     #Move this in some consumer
     def get_taxon_name(self, list_uuid):
@@ -146,8 +148,7 @@ class CrisprResultManager():
         if exclude:
             self.exclude_taxon = self.get_taxon_name(exclude)
 
-    def search_occurences(self, genomes_include, len_slice = 50000):
-        #type: (List[str], int, int) -> None
+    def search_occurences(self, genomes_include):
         """Search sgRNA occurences in couchDB with motif broker and complete Hit objects.
         
         :param genomes_include: list of genome uuid
@@ -162,26 +163,7 @@ class CrisprResultManager():
         
         all_seqs = [seq for hit in self.hits_collection for seq in hit.to_request_sequences]
 
-        bulk_requests = [all_seqs[i:i + len_slice] for i in range(0, len(all_seqs), len_slice)]
-
-        logging.debug(f"{len(all_seqs)} seqs to interrogate in couchDB")
-        logging.debug(f"{[len(r) for r in bulk_requests]} bulks")
-        
-        results = {}
-
-        for bulk in bulk_requests:
-            joker = 0
-            request_sliced = {"keys" : bulk}
-            while True:
-                try:
-                    results.update(SESSION.post(self.motif_broker_endpoint + "/bulk_request",json=request_sliced).json()["request"])
-                except:
-                    joker += 1
-                    if joker > 3:
-                        raise Exception(f"Can't interrogate motif-broker at {self.motif_broker_endpoint} after 3 tries")
-                    time.sleep(5)
-                    continue
-                break
+        results = mb_request.get(all_seqs)
         
         for hit in self.hits_collection:
             hit.store_occurences([results[seq] for seq in hit.to_request_sequences], genomes_include)

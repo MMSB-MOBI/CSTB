@@ -30,15 +30,19 @@ Specific Gene workflow purpose is to search sgRNAs present in a gene and its hom
 Its inputs are the gene sequence, a list of included organisms, a list of excluded organisms, parameters for sgRNA (length, PAM motif) and parameters for homologous research (identity percentage). 
 
 1. Search and encode sgRNA of the gene. 
+
 Search sgRNAs in input gene and encode them with 2-bits int representation. 
 
-2. Intersection of sgRNAs 
+2. Intersection of sgRNAs
+
 Intersect sgRNAs found in gene and all sgRNAs present in included organisms and absent from excluded organisms with setCompare. 
 
 3. Identify homologous genes 
+
 Use blast to identify homologous genes in included organisms. We works directly from nucleotides sequences to keep sgRNAs, so only very strong homology can be identified, which is not the general definition of homologous genes, more based on identity and similarity of protein sequence. We can call our homologous genes "near identical genes". 
 
 4. Post-processing steps 
+
 * Retrieve organism metadata  
 Same as All Genomes. 
 
