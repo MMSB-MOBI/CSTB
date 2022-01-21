@@ -1,3 +1,4 @@
 pycouch
 CSTB-core
 requests
+motif_broker_request
